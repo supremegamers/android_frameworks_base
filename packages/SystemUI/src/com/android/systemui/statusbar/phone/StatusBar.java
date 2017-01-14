@@ -236,6 +236,7 @@ import com.android.systemui.statusbar.phone.TickerView;
 import com.android.systemui.statusbar.phone.dagger.StatusBarComponent;
 import com.android.systemui.statusbar.policy.BatteryController;
 import com.android.systemui.statusbar.policy.BrightnessMirrorController;
+import com.android.systemui.statusbar.policy.BurnInProtectionController;
 import com.android.systemui.statusbar.policy.ConfigurationController;
 import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController;
@@ -298,7 +299,8 @@ public class StatusBar extends SystemUI implements DemoMode,
             "system:" + Settings.System.STATUS_BAR_TICKER_ANIMATION_MODE;
     private static final String STATUS_BAR_TICKER_TICK_DURATION =
             "system:" + Settings.System.STATUS_BAR_TICKER_TICK_DURATION;
-
+    public static final String SYSTEMUI_BURNIN_PROTECTION =
+            "lineagesystem:" + LineageSettings.System.SYSTEMUI_BURNIN_PROTECTION;
     private static final String BANNER_ACTION_CANCEL =
             "com.android.systemui.statusbar.banner_action_cancel";
     private static final String BANNER_ACTION_SETUP =
@@ -390,6 +392,7 @@ public class StatusBar extends SystemUI implements DemoMode,
     private final AutoHideController mAutoHideController;
     @Nullable
     private final KeyguardLiftController mKeyguardLiftController;
+    private BurnInProtectionController mBurnInProtectionController;
 
     private final Point mCurrentDisplaySize = new Point();
 
@@ -609,6 +612,7 @@ public class StatusBar extends SystemUI implements DemoMode,
     private final NotificationLockscreenUserManager mLockscreenUserManager;
     private final NotificationRemoteInputManager mRemoteInputManager;
     private boolean mWallpaperSupported;
+    private boolean mBurnInProtectionEnabled;
 
     private final BroadcastReceiver mWallpaperChangedReceiver = new BroadcastReceiver() {
         @Override
@@ -968,6 +972,7 @@ public class StatusBar extends SystemUI implements DemoMode,
         mTunerService.addTunable(this, STATUS_BAR_SHOW_TICKER);
         mTunerService.addTunable(this, STATUS_BAR_TICKER_ANIMATION_MODE);
         mTunerService.addTunable(this, STATUS_BAR_TICKER_TICK_DURATION);
+        mTunerService.addTunable(this, SYSTEMUI_BURNIN_PROTECTION);
 
         mDisplayManager = mContext.getSystemService(DisplayManager.class);
 
@@ -1236,6 +1241,11 @@ public class StatusBar extends SystemUI implements DemoMode,
                     checkBarModes();
                     mStatusBarContent = (LinearLayout) mStatusBarView.findViewById(R.id.status_bar_contents);
                     mCenterArea = mStatusBarView.findViewById(R.id.centered_area);
+                    if (mContext.getResources().getBoolean(
+                            com.android.internal.R.bool.config_enableBurnInProtection)) {
+                        mBurnInProtectionController = new BurnInProtectionController(mContext,
+                                this, mStatusBarView);
+                    }
                 }).getFragmentManager()
                 .beginTransaction()
                 .replace(R.id.status_bar_container, new CollapsedStatusBarFragment(),
@@ -4362,6 +4372,9 @@ public class StatusBar extends SystemUI implements DemoMode,
 
             updateNotificationPanelTouchState();
             mNotificationShadeWindowViewController.cancelCurrentTouch();
+            if (mBurnInProtectionController != null) {
+                mBurnInProtectionController.stopShiftTimer(mBurnInProtectionEnabled);
+            }
             if (mLaunchCameraOnFinishedGoingToSleep) {
                 mLaunchCameraOnFinishedGoingToSleep = false;
 
@@ -4417,6 +4430,9 @@ public class StatusBar extends SystemUI implements DemoMode,
                 mLaunchCameraWhenFinishedWaking = false;
             }
             updateScrimController();
+            if (mBurnInProtectionController != null) {
+                mBurnInProtectionController.startShiftTimer(mBurnInProtectionEnabled);
+            }
         }
     };
 
@@ -5045,6 +5061,16 @@ public class StatusBar extends SystemUI implements DemoMode,
                             Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
         } else if (STATUS_BAR_BRIGHTNESS_CONTROL.equals(key)) {
             mBrightnessControl = TunerService.parseIntegerSwitch(newValue, false);
+        } else if (SYSTEMUI_BURNIN_PROTECTION.equals(key)) {
+            mBurnInProtectionEnabled = newValue != null && Integer.parseInt(newValue) == 1;
+            if (mBurnInProtectionController != null) {
+                if (mBurnInProtectionEnabled) {
+                    mBurnInProtectionController.startShiftTimer(true);
+                } else {
+                    // Forcefully disable it
+                    mBurnInProtectionController.stopShiftTimer(true);
+                }
+            }
         }
     }
     // End Extra BaseStatusBarMethods.

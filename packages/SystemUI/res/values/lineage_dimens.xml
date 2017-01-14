@@ -64,4 +64,7 @@
     <!-- Daily data usage -->
     <dimen name="data_usage_padding_start">4dp</dimen>
 
+    <!-- Burn-in protection -->
+    <dimen name="burnin_protection_horizontal_shift">3dp</dimen>
+    <dimen name="burnin_protection_vertical_shift">1dp</dimen>
 </resources>
