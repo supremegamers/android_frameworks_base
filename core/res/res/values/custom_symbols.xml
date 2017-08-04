@@ -1,4 +1,8 @@
 <resources>
     <!-- Enable face auth only when swiping security view -->
     <java-symbol type="bool" name="config_faceAuthOnlyOnSecurityView" />
+
+    <!-- Any package that has one of the package names defined below will be prevented
+         from using specific sensors in order to stop battery drain -->
+    <java-symbol type="array" name="config_blockPackagesSensorDrain" />
 </resources>
