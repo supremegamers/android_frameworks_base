@@ -364,6 +364,9 @@ public class QSPanel extends LinearLayout implements Tunable, Callback, Brightne
         if (mHost != null) {
             mHost.removeCallback(this);
         }
+        if (mCustomizePanel != null) {
+            mCustomizePanel.updateResources();
+        }
         if (mTileLayout != null) {
             mTileLayout.setListening(false);
         }
@@ -498,6 +501,9 @@ public class QSPanel extends LinearLayout implements Tunable, Callback, Brightne
         if (mTileLayout != null) {
             mTileLayout.updateResources();
         }
+        if (mCustomizePanel != null) {
+            mCustomizePanel.updateResources();
+        }
     }
 
     protected void updatePadding() {
@@ -571,11 +577,11 @@ public class QSPanel extends LinearLayout implements Tunable, Callback, Brightne
             mTileLayout = newLayout;
             if (mHost != null) setTiles(mHost.getTiles());
             newLayout.setListening(mListening);
-            if (needsDynamicRowsAndColumns()) {
+            /*if (needsDynamicRowsAndColumns()) {
                 newLayout.setMinRows(horizontal ? 2 : 1);
                 // Let's use 3 columns to match the current layout
                 newLayout.setMaxColumns(horizontal ? 3 : TileLayout.NO_MAX_COLUMNS);
-            }
+            }*/
             updateTileLayoutMargins();
             updateFooterMargin();
             updateMediaDisappearParameters();
@@ -605,9 +611,9 @@ public class QSPanel extends LinearLayout implements Tunable, Callback, Brightne
         return true;
     }
 
-    protected boolean needsDynamicRowsAndColumns() {
-        return true;
-    }
+    /*protected boolean needsDynamicRowsAndColumns() {
+        return false;
+    }*/
 
     private void switchAllContentToParent(ViewGroup parent, QSTileLayout newLayout) {
         int index = parent == this ? mMovableContentStartIndex : 0;

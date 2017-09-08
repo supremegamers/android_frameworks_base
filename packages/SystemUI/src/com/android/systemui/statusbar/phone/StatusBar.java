@@ -2097,6 +2097,31 @@ public class StatusBar extends SystemUI implements DemoMode,
             /*resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.XXX),
                     false, this, UserHandle.USER_ALL);*/
+
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.QS_ROWS_PORTRAIT),
+                    false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.QS_ROWS_LANDSCAPE),
+                    false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.QS_COLUMNS_PORTRAIT),
+                    false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.QS_COLUMNS_LANDSCAPE),
+                    false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.QS_ROWS_PORTRAIT),
+                    false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.QS_ROWS_LANDSCAPE),
+                    false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.QS_COLUMNS_PORTRAIT),
+                    false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.QS_COLUMNS_LANDSCAPE),
+                    false, this, UserHandle.USER_ALL);
         }
 
         @Override
@@ -2105,15 +2130,20 @@ public class StatusBar extends SystemUI implements DemoMode,
                     Settings.System.XXX))) {
                 doXXX();
             }*/
+
+            if (uri.equals(Settings.System.getUriFor(Settings.System.QS_ROWS_PORTRAIT)) ||
+                    uri.equals(Settings.System.getUriFor(Settings.System.QS_ROWS_LANDSCAPE)) ||
+                    uri.equals(Settings.System.getUriFor(Settings.System.QS_COLUMNS_PORTRAIT)) ||
+                    uri.equals(Settings.System.getUriFor(Settings.System.QS_COLUMNS_LANDSCAPE))) {
+                setQsRowsColumns();
+            }
         }
 
         public void update() {
-            //doXXX();
+            setQsRowsColumns();
         }
-    }
 
-    /*private void doXXX() {
-    }*/
+    }
 
     /**
      * All changes to the status bar and notifications funnel through here and are batched.
@@ -3755,6 +3785,12 @@ public class StatusBar extends SystemUI implements DemoMode,
         if (mContext.getThemeResId() != themeResId) {
             mContext.setTheme(themeResId);
             mConfigurationController.notifyThemeChanged();
+        }
+    }
+
+    private void setQsRowsColumns() {
+        if (mQSPanel != null) {
+            mQSPanel.updateResources();
         }
     }
 
