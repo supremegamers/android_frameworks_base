@@ -59,7 +59,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.PowerManager;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.Trace;
 import android.os.UserHandle;
@@ -189,6 +191,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
     static final String GLOBAL_ACTION_KEY_EMERGENCY = "emergency";
     static final String GLOBAL_ACTION_KEY_SCREENSHOT = "screenshot";
     private static final String GLOBAL_ACTION_KEY_PANIC = "panic";
+    private static final String GLOBAL_ACTION_KEY_SLEEP = "sleep";
 
     private static final String[] PANIC_PACKAGES =
             new String[]{"info.guardianproject.ripple", "org.calyxos.ripple"};
@@ -651,6 +654,8 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
                 addIfShouldShowAction(tempActions, getAssistAction());
             } else if (GLOBAL_ACTION_KEY_RESTART.equals(actionKey)) {
                 addIfShouldShowAction(tempActions, restartAction);
+            } else if (GLOBAL_ACTION_KEY_SLEEP.equals(actionKey)) {
+				addIfShouldShowAction(tempActions, new SleepAction());
             } else if (GLOBAL_ACTION_KEY_SCREENSHOT.equals(actionKey)) {
                 addIfShouldShowAction(tempActions, new ScreenshotAction());
             } else if (GLOBAL_ACTION_KEY_LOGOUT.equals(actionKey)) {
@@ -918,6 +923,37 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             return true;
         }
     }
+    
+    private final class SleepAction extends SinglePressAction implements LongPressAction { 
+        private SleepAction() { 
+            super(R.drawable.ic_restart, R.string.global_action_sleep); 
+        } 
+ 
+        @Override 
+        public boolean onLongPress() { 
+            PowerManager mPowerManager = (PowerManager) 
+                   mContext.getSystemService(Context.POWER_SERVICE); 
+            mPowerManager.goToSleep(SystemClock.uptimeMillis()); 
+            return true; 
+        } 
+ 
+        @Override 
+        public boolean showDuringKeyguard() { 
+            return true; 
+        } 
+ 
+        @Override 
+        public boolean showBeforeProvisioning() { 
+            return true; 
+        } 
+ 
+        @Override 
+        public void onPress() { 
+            PowerManager mPowerManager = (PowerManager) 
+                   mContext.getSystemService(Context.POWER_SERVICE); 
+            mPowerManager.goToSleep(SystemClock.uptimeMillis()); 
+        } 
+    } 
 
     protected int getEmergencyTextColor(Context context) {
         return context.getResources().getColor(
