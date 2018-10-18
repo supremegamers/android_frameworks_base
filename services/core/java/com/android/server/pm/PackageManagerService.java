@@ -19019,7 +19019,6 @@ public class PackageManagerService extends IPackageManager.Stub
 
             if (!onIncremental && !SELinux.restoreconRecursive(afterCodeFile)) {
                 Slog.w(TAG, "Failed to restorecon");
-                return false;
             }
 
             // Reflect the rename internally
