@@ -17,4 +17,7 @@
 <resources>
     <!-- OmniWeather image size -->
     <dimen name="current_weather_image_size">42dp</dimen>
+
+    <!-- Weather condition icon  -->
+    <dimen name="weather_icon_size">24dp</dimen>
 </resources>
