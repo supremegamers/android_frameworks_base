@@ -17,11 +17,13 @@
 package com.android.keyguard.clock;
 
 import android.app.WallpaperManager;
+import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Paint.Style;
+import android.provider.Settings;
 import android.icu.text.DateFormat;
 import android.icu.text.DisplayContext;
 import android.os.SystemProperties;
@@ -70,6 +72,8 @@ public class IDEJavaClockController implements ClockPlugin {
      */
     private final ViewPreviewer mRenderer = new ViewPreviewer();
 
+    private final Context mContext;
+
     /**
      * Helper to extract colors from wallpaper palette for clock face.
      */
@@ -115,9 +119,23 @@ public class IDEJavaClockController implements ClockPlugin {
      */
     public IDEJavaClockController(Resources res, LayoutInflater inflater,
                               SysuiColorExtractor colorExtractor) {
+        this(res, inflater, colorExtractor, null);
+    }
+
+    /**
+     * Create a IDEJavaClockController instance.
+     *
+     * @param res Resources contains title and thumbnail.
+     * @param inflater Inflater used to inflate custom clock views.
+     * @param colorExtractor Extracts accent color from wallpaper.
+     * @param context A context.
+     */
+    public IDEJavaClockController(Resources res, LayoutInflater inflater,
+            SysuiColorExtractor colorExtractor, Context context) {
         mResources = res;
         mLayoutInflater = inflater;
         mColorExtractor = colorExtractor;
+        mContext = context;
     }
 
     private void createViews() {
@@ -269,7 +287,8 @@ public class IDEJavaClockController implements ClockPlugin {
 
     @Override
     public boolean shouldShowStatusArea() {
-        return false;
+        if (mContext == null) return true;
+        return Settings.System.getInt(mContext.getContentResolver(), Settings.System.CLOCK_SHOW_STATUS_AREA, 1) == 1;
     }
 
     private int generateColorDesat(int color, float satValue) {

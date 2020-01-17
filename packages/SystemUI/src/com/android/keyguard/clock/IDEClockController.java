@@ -101,7 +101,7 @@ public class IDEClockController implements ClockPlugin {
     }
 
     /**
-     * Create a DefaultClockController instance.
+     * Create a IDEClockController instance.
      *
      * @param res Resources contains title and thumbnail.
      * @param inflater Inflater used to inflate custom clock views.
@@ -243,6 +243,7 @@ public class IDEClockController implements ClockPlugin {
 
     @Override
     public boolean shouldShowStatusArea() {
-        return false;
+        if (mContext == null) return true;
+        return Settings.System.getInt(mContext.getContentResolver(), Settings.System.CLOCK_SHOW_STATUS_AREA, 1) == 1;
     }
 }

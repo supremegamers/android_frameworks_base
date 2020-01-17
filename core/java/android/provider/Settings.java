@@ -5207,6 +5207,12 @@ public final class Settings {
         public static final String SCREEN_OFF_ANIMATION = "screen_off_animation";
 
         /**
+         * Whether to display status area (date & weather information) on the cLock
+         * @hide
+         */
+        public static final String CLOCK_SHOW_STATUS_AREA = "clock_show_status_area";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *

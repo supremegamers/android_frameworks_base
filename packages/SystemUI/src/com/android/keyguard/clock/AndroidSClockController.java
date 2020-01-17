@@ -29,6 +29,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.text.LineBreaker;
 import android.graphics.Typeface;
 import android.graphics.Paint.Style;
+import android.provider.Settings;
 import android.icu.text.DateFormat;
 import android.icu.text.DisplayContext;
 import android.net.Uri;
@@ -171,9 +172,21 @@ public class AndroidSClockController implements ClockPlugin {
      */
     public AndroidSClockController(Resources res, LayoutInflater inflater,
             SysuiColorExtractor colorExtractor) {
-        mResources = res;
+                this(res, inflater, colorExtractor, null);
+    }
+
+    /**
+     * Create a DefaultClockController instance.
+     *
+     * @param res Resources contains title and thumbnail.
+     * @param inflater Inflater used to inflate custom clock views.
+     * @param colorExtractor Extracts accent color from wallpaper.
+     * @param context A context.
+     */
+    public AndroidSClockController(Resources res, LayoutInflater inflater,
+            SysuiColorExtractor colorExtractor, Context context) {mResources = res;
         mLayoutInflater = inflater;
-        mContext = mLayoutInflater.getContext();
+        mContext = context == null ? mLayoutInflater.getContext() : context;
         mColorExtractor = colorExtractor;
         mClickActions = new HashMap<>();
         mRowPadding = mResources.getDimensionPixelSize(R.dimen.subtitle_clock_padding);
@@ -492,7 +505,8 @@ public class AndroidSClockController implements ClockPlugin {
 
     @Override
     public boolean shouldShowStatusArea() {
-        return false;
+        if (mContext == null) return true;
+        return Settings.System.getInt(mContext.getContentResolver(), Settings.System.CLOCK_SHOW_STATUS_AREA, 1) == 1;
     }
 
     private void updateTextColors() {
