@@ -247,6 +247,7 @@ import com.android.systemui.statusbar.policy.KeyguardUserSwitcher;
 import com.android.systemui.statusbar.policy.NetworkController;
 import com.android.systemui.statusbar.policy.OnHeadsUpChangedListener;
 import com.android.systemui.statusbar.policy.RemoteInputQuickSettingsDisabler;
+import com.android.systemui.statusbar.policy.TaskHelper;
 import com.android.systemui.statusbar.policy.UserInfoControllerImpl;
 import com.android.systemui.statusbar.policy.UserSwitcherController;
 import com.android.systemui.tuner.TunerService;
@@ -258,6 +259,7 @@ import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -449,6 +451,8 @@ public class StatusBar extends SystemUI implements DemoMode,
     LinearLayout mStatusBarContent;
     // Other views that need hiding for the notification ticker
     View mCenterArea;
+    
+    protected TaskHelper mTaskHelper;
 
     // expanded notifications
     // the sliding/resizing panel within the notification window
@@ -849,7 +853,8 @@ public class StatusBar extends SystemUI implements DemoMode,
             Lazy<NotificationShadeDepthController> notificationShadeDepthControllerLazy,
             StatusBarTouchableRegionManager statusBarTouchableRegionManager,
             TunerService tunerService,
-            FODCircleViewImpl fodCircleViewImpl) {
+            FODCircleViewImpl fodCircleViewImpl,
+            TaskHelper taskHelper) {
         super(context);
         mNotificationsController = notificationsController;
         mLightBarController = lightBarController;
@@ -928,13 +933,13 @@ public class StatusBar extends SystemUI implements DemoMode,
         mDismissCallbackRegistry = dismissCallbackRegistry;
         mTunerService = tunerService;
         mFODCircleViewImpl = fodCircleViewImpl;
+        mTaskHelper = taskHelper;
 
         mBubbleExpandListener =
                 (isExpanding, key) -> {
                     mNotificationsController.requestNotificationUpdate("onBubbleExpandChanged");
                     updateScrimController();
                 };
-
 
         DateTimeView.setReceiverHandler(timeTickHandler);
 

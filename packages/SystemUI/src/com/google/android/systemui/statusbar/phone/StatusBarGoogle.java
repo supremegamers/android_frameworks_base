@@ -87,6 +87,7 @@ import com.android.systemui.statusbar.policy.ExtensionController;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.policy.NetworkController;
 import com.android.systemui.statusbar.policy.RemoteInputQuickSettingsDisabler;
+import com.android.systemui.statusbar.policy.TaskHelper;
 import com.android.systemui.statusbar.policy.UserInfoControllerImpl;
 import com.android.systemui.statusbar.policy.UserSwitcherController;
 import com.android.systemui.tuner.TunerService;
@@ -192,7 +193,8 @@ public class StatusBarGoogle extends StatusBar {
             Lazy<NotificationShadeDepthController> notificationShadeDepthControllerLazy,
             StatusBarTouchableRegionManager statusBarTouchableRegionManager,
 	    TunerService tunerService,
-	    FODCircleViewImpl fodCircleView) {
+	    FODCircleViewImpl fodCircleView,
+      TaskHelper taskHelper) {
         super(context,
                 notificationsController,
                 lightBarController,
@@ -271,7 +273,8 @@ public class StatusBarGoogle extends StatusBar {
                 notificationShadeDepthControllerLazy,
                 statusBarTouchableRegionManager,
 		tunerService,
-		fodCircleView);
+		fodCircleView,
+    taskHelper);
         mSmartSpaceController = smartSpaceController;
     }
 

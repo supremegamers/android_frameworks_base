@@ -49,8 +49,9 @@ import android.content.om.IOverlayManager;
 import android.content.om.OverlayInfo;
 
 import java.util.List;
-
 import java.util.Locale;
+
+import com.android.internal.statusbar.IStatusBarService;
 
 public class Utils {
 
@@ -187,6 +188,35 @@ public class Utils {
             // Ignore
         }
         return false;
+    }
+    
+    public static void killForegroundApp() {
+        FireActions.killForegroundApp();
+    }
+
+    private static final class FireActions {
+        private static IStatusBarService mStatusBarService = null;
+
+        private static IStatusBarService getStatusBarService() {
+            synchronized (FireActions.class) {
+                if (mStatusBarService == null) {
+                    mStatusBarService = IStatusBarService.Stub.asInterface(
+                            ServiceManager.getService("statusbar"));
+                }
+                return mStatusBarService;
+            }
+        }
+        
+        public static void killForegroundApp() {
+            IStatusBarService service = getStatusBarService();
+            if (service != null) {
+                try {
+                    service.killForegroundApp();
+                } catch (RemoteException e) {
+                    // do nothing.
+                }
+            }
+        }
     }
 
     public static void switchScreenOff(Context ctx) {
