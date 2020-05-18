@@ -59,6 +59,8 @@ public abstract class AuthBiometricView extends LinearLayout {
 
     private static final String TAG = "BiometricPrompt/AuthBiometricView";
 
+    private static final String FOD = "vendor.lineage.biometrics.fingerprint.inscreen";
+
     /**
      * Authentication hardware idle.
      */
@@ -258,6 +260,9 @@ public abstract class AuthBiometricView extends LinearLayout {
 
         mInjector = injector;
         mInjector.mBiometricView = this;
+
+        mPackageManager = context.getPackageManager();
+        mHasFod = mPackageManager.hasSystemFeature(FOD);
 
         mAccessibilityManager = context.getSystemService(AccessibilityManager.class);
 
@@ -559,6 +564,10 @@ public abstract class AuthBiometricView extends LinearLayout {
         mSavedState = savedState;
     }
 
+    public boolean getHasFod() {
+        return mHasFod;
+    }
+
     private void setTextOrHide(TextView view, String string) {
         if (TextUtils.isEmpty(string)) {
             view.setVisibility(View.GONE);
@@ -641,7 +650,23 @@ public abstract class AuthBiometricView extends LinearLayout {
             if (!Utils.canAuthenticateWithFace(mContext, mUserId)){
                 mUseFaceButton.setVisibility(View.GONE);
             }
-            mIconView.setVisibility(View.VISIBLE);
+            if (mHasFod) {
+                final int navbarHeight = getResources().getDimensionPixelSize(
+                        com.android.internal.R.dimen.navigation_bar_height);
+                final int fodMargin = getResources().getDimensionPixelSize(
+                        R.dimen.biometric_dialog_fod_margin);
+
+                mIconView.setVisibility(View.INVISIBLE);
+                // The view is invisible, so it still takes space and
+                // we use that to adjust for the FOD
+                mIconView.setPadding(0, 0, 0, fodMargin - navbarHeight);
+
+                // Add Errortext above the biometric icon
+                this.removeView(mIndicatorView);
+                this.addView(mIndicatorView, this.indexOfChild(mIconView));
+            } else {
+                mIconView.setVisibility(View.VISIBLE);
+            }
         } else if (this instanceof AuthBiometricFaceView) {
             mIconView.setVisibility(View.VISIBLE);
             mUseFaceButton.setVisibility(View.GONE);
