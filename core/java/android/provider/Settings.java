@@ -9382,6 +9382,12 @@ public final class Settings {
         public static final String TAP_GESTURE = "tap_gesture";
 
         /**
+         * Hide clock when Home is showing
+         * @hide
+         */
+        public static final String STATUSBAR_CLOCK_HIDDEN_BY_HOME = "statusbar_clock_hidden_by_home";
+
+        /**
          * Controls whether the people strip is enabled.
          * @hide
          */
