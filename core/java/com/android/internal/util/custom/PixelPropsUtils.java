@@ -42,14 +42,14 @@ public class PixelPropsUtils {
         propsToChange = new HashMap<>();
         propsToChange.put("BRAND", "google");
         propsToChange.put("MANUFACTURER", "Google");
-        propsToChange.put("DEVICE", "redfin");
-        propsToChange.put("PRODUCT", "redfin");
-        propsToChange.put("MODEL", "Pixel 5");
         propsToChange.put("IS_DEBUGGABLE", false);
         propsToChange.put("IS_ENG", false);
         propsToChange.put("IS_USERDEBUG", false);
         propsToChange.put("IS_USER", true);
         propsToChange.put("TYPE", "user");
+        propsToChange.put("DEVICE", "crosshatch");
+        propsToChange.put("PRODUCT", "crosshatch");
+        propsToChange.put("MODEL", "Pixel 3 XL");
     }
 
     public static void setProps(String packageName) {
@@ -63,9 +63,6 @@ public class PixelPropsUtils {
             for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
                 String key = prop.getKey();
                 Object value = prop.getValue();
-                if (packageName.equals("com.google.android.gms") && key.equals("MODEL")){
-                    value = value + "\u200b";
-                }
                 setPropValue(key, value);
             }
         }
