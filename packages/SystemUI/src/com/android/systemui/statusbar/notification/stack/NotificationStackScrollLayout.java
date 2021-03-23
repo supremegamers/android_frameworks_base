@@ -781,7 +781,12 @@ public class NotificationStackScrollLayout extends ViewGroup implements ScrollAd
         boolean showHistory = Settings.Secure.getIntForUser(mContext.getContentResolver(),
                 Settings.Secure.NOTIFICATION_HISTORY_ENABLED, 0, UserHandle.USER_CURRENT) == 1;
 
-        updateFooterView(showFooterView, showDismissView, showHistory);
+        updateFooterView(showFooterView, showDismissView, showHistory && !isDismissAllButtonEnabled());
+    }
+
+    private boolean isDismissAllButtonEnabled() {
+        return Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DISMISS_ALL_BUTTON, 0) != 0;
     }
 
     /**
@@ -5087,7 +5092,7 @@ public class NotificationStackScrollLayout extends ViewGroup implements ScrollAd
         }
         boolean animate = mIsExpanded && mAnimationsEnabled;
         mFooterView.setVisible(visible, animate);
-        mFooterView.setSecondaryVisible(showDismissView, animate);
+        mFooterView.setSecondaryVisible(!isDismissAllButtonEnabled() && showDismissView, animate);
         mFooterView.showHistory(showHistory);
     }
 
@@ -5817,8 +5822,10 @@ public class NotificationStackScrollLayout extends ViewGroup implements ScrollAd
         if (mStatusBar != null) {
             if (mStatusBar.getDismissAllButton() != null) {
                 mStatusBar.getDismissAllButton().setOnClickListener(v -> {
-                    mMetricsLogger.action(MetricsEvent.ACTION_DISMISS_ALL_NOTES);
-                    clearNotifications(ROWS_ALL, true /* closeShade */);
+                    if (isDismissAllButtonEnabled()) {
+                        mMetricsLogger.action(MetricsEvent.ACTION_DISMISS_ALL_NOTES);
+                        clearNotifications(ROWS_ALL, true /* closeShade */);
+                    }
                 });
             }
         }
