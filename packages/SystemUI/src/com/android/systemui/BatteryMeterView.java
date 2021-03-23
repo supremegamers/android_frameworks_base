@@ -414,6 +414,9 @@ public class BatteryMeterView extends LinearLayout implements
     }
 
     private void setPercentTextAtCurrentLevel() {
+        if (mBatteryPercentView == null) {
+            return;
+        }
         // Use the high voltage symbol ⚡ (u26A1 unicode)
         String bolt = "\u26A1";
             CharSequence mChargeIndicator = mCharging && (mBatteryStyle == BATTERY_STYLE_TEXT)
