@@ -81,4 +81,9 @@
 
     <!-- The translation for disappearing security views after having solved them. -->
     <dimen name="disappear_y_translation">-32dp</dimen>
+
+	<!-- Tag clock size -->
+    <dimen name="btlg_tag_width">300dp</dimen>
+    <dimen name="btlg_tag_height">165dp</dimen>
+
 </resources>
