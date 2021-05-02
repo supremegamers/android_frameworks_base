@@ -32,6 +32,8 @@ public class DescendantSeamlessClockSwitch {
         "com.android.keyguard.clock.TypeClockController",
         "com.android.keyguard.clock.TypeClockAltController",
         "com.android.keyguard.clock.BinaryClockController",
+        "com.android.keyguard.clock.AndroidSClockController",
+        "com.android.keyguard.clock.AndroidSDP3ClockController",
         "com.android.keyguard.clock.DividedLinesClockController",
         "com.android.keyguard.clock.SfunyClockController",
         "com.android.keyguard.clock.MNMLBoxClockController",
