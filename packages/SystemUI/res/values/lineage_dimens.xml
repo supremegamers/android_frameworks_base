@@ -67,4 +67,8 @@
     <!-- Burn-in protection -->
     <dimen name="burnin_protection_horizontal_shift">3dp</dimen>
     <dimen name="burnin_protection_vertical_shift">1dp</dimen>
+
+    <!-- Height of a the shelf with the notification icons -->
+    <dimen name="notification_shelf_height">40dp</dimen>
+
 </resources>
