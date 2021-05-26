@@ -2654,7 +2654,7 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
             mPowerOptionsDialog.show();
         }
 
-        public void showRestartOptionsMenu() {
+        public void showRestartOptionsMenu() { 
             mRestartOptionsDialog = GlobalActionsPowerDialog.create(
                     mContext, mRestartOptionsAdapter);
             mRestartOptionsDialog.show();
@@ -2843,9 +2843,9 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
 
                 // close first, as popup windows will not fade during the animation
                 dismissOverflow(false);
-                dismissPowerOptions(false);
-                dismissRestartOptions(false);
-                dismissUsers(false);
+                dismissPowerOptions();
+                dismissRestartOptions();
+                dismissUsers();
                 if (mControlsUiController != null) mControlsUiController.closeDialogs(false);
             });
         }
@@ -2870,9 +2870,9 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
             resetOrientation();
             dismissWallet();
             dismissOverflow(true);
-            dismissPowerOptions(true);
-            dismissRestartOptions(true);
-            dismissUsers(true);
+            dismissPowerOptions();
+            dismissRestartOptions();
+            dismissUsers();
             if (mControlsUiController != null) mControlsUiController.hide();
             mNotificationShadeWindowController.setRequestTopUi(false, TAG);
             mDepthController.updateGlobalDialogVisibility(0, null /* view */);
@@ -2899,33 +2899,21 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
             }
         }
 
-        private void dismissPowerOptions(boolean immediate) {
+        private void dismissPowerOptions() {
             if (mPowerOptionsDialog != null) {
-                if (immediate) {
-                    mPowerOptionsDialog.dismiss();
-                } else {
-                    mPowerOptionsDialog.dismiss();
-                }
+                mPowerOptionsDialog.dismiss();
             }
         }
 
-        private void dismissRestartOptions(boolean immediate) {
+        private void dismissRestartOptions() {
             if (mRestartOptionsDialog != null) {
-                if (immediate) {
-                    mRestartOptionsDialog.dismiss();
-                } else {
-                    mRestartOptionsDialog.dismiss();
-                }
+                mRestartOptionsDialog.dismiss();
             }
         }
 
-        private void dismissUsers(boolean immediate) {
+        private void dismissUsers() {
             if (mUsersDialog != null) {
-                if (immediate) {
-                    mUsersDialog.dismiss();
-                } else {
-                    mUsersDialog.dismiss();
-                }
+                mUsersDialog.dismiss();
             }
         }
 
@@ -2972,9 +2960,9 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
             // ensure dropdown menus are dismissed before re-initializing the dialog
             dismissWallet();
             dismissOverflow(true);
-            dismissPowerOptions(true);
-            dismissRestartOptions(true);
-            dismissUsers(true);
+            dismissPowerOptions();
+            dismissRestartOptions();
+            dismissUsers();
             if (mControlsUiController != null) {
                 mControlsUiController.hide();
             }
