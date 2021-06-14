@@ -21,6 +21,7 @@
     android:layout_below="@id/quick_status_bar_system_icons"
     android:visibility="invisible"
     android:theme="@style/QSHeaderTheme"
+    android:layout_marginBottom="5dp"
     android:forceHasOverlappingRendering="false">
 
         <com.android.systemui.qs.QSHeaderInfoLayout
