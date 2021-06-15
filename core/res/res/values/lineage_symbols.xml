@@ -42,4 +42,7 @@
     <java-symbol type="integer" name="config_smartCutoffTemperature" />
     <java-symbol type="integer" name="config_smartCutoffResumeTemperature" />
 
+    <!-- App Lock -->
+    <java-symbol type="string" name="lockscreen_pattern_instructions" />
+
 </resources>
