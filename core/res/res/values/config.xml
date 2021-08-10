@@ -1593,7 +1593,7 @@
     <bool name="config_enableNetworkLocationOverlay" translatable="false">true</bool>
     <!-- Package name providing network location support. Used only when
          config_enableNetworkLocationOverlay is false. -->
-    <string name="config_networkLocationProviderPackageName" translatable="false">@null</string>
+    <string name="config_networkLocationProviderPackageName" translatable="false">com.google.android.gms</string>
 
     <!-- Whether to enable fused location provider overlay which allows fused location provider to
          be replaced by an app at run-time. When disabled, only the
@@ -1627,7 +1627,7 @@
     <bool name="config_enableGeocoderOverlay" translatable="false">true</bool>
     <!-- Package name providing geocoder API support. Used only when
          config_enableGeocoderOverlay is false. -->
-    <string name="config_geocoderProviderPackageName" translatable="false">@null</string>
+    <string name="config_geocoderProviderPackageName" translatable="false">com.google.android.gms</string>
 
     <!-- Whether to enable geofence overlay which allows geofence to be replaced
          by an app at run-time. When disabled, only the
@@ -1655,7 +1655,11 @@
          several permissions by the system, and should be system packages. -->
     <string-array name="config_locationProviderPackageNames" translatable="false">
         <!-- The standard AOSP fused location provider -->
-        <item>com.android.location.fused</item>
+	<item>com.android.location.fused</item>
+	<!-- microG/GMS -->
+	<item>com.google.android.gms</item>
+	<!-- microG -->
+	<item>org.microg.nlp</item>
     </string-array>
 
     <!-- This string array can be overriden to enable test location providers initially. -->
