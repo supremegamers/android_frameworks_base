@@ -14,10 +14,6 @@
 -->
 <resources>
 
-  <!-- Whether device has dash charging support -->
-  <java-symbol type="bool" name="config_hasDashCharger" />
-
-
   <!-- Smart charging -->
   <java-symbol type="bool" name="config_smartChargingAvailable" />
   <java-symbol type="integer" name="config_smartChargingBatteryLevel" />

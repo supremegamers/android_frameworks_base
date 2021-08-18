@@ -13,9 +13,6 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
-    <!-- Whether device has dash charging support -->
-    <bool name="config_hasDashCharger">false</bool>
-
     <!-- Smart charging -->
     <bool name="config_smartChargingAvailable">false</bool>
     <integer name="config_smartChargingBatteryLevel">80</integer>
