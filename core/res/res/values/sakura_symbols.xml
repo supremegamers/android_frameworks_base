@@ -20,9 +20,6 @@
   <!-- Whether device has warp charging support -->
   <java-symbol type="bool" name="config_hasWarpCharger" />
 
-  <!-- Whether device has VOOC charging support -->
-  <java-symbol type="bool" name="config_hasVoocCharger" />
-
   <!-- Smart charging -->
   <java-symbol type="bool" name="config_smartChargingAvailable" />
   <java-symbol type="integer" name="config_smartChargingBatteryLevel" />
