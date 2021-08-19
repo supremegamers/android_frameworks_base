@@ -2313,7 +2313,7 @@ public final class PowerManagerService extends SystemService
      */
     private void updateSmartFeatureStatus() {
         if (mPowerInputSuspended) {
-            boolean resumeBySmartCharging = !mSmartChargingEnabled || (mSmartChargingEnabled && (mBatteryLevel <= mSmartChargingResumeLevel));
+            boolean resumeBySmartCharging = !mSmartChargingEnabled || (mSmartChargingEnabled && (mSmartChargingResumeLevel < mSmartChargingLevel && mBatteryLevel <= mSmartChargingResumeLevel));
             boolean resumeBySmartCutoff = !mSmartCutoffEnabled || (mSmartCutoffEnabled && (mBatteryTemperature <= mSmartCutoffResumeTemperature));
             // Charging should only be resumed when all factors vote yes
             if (resumeBySmartCharging && resumeBySmartCutoff) {
