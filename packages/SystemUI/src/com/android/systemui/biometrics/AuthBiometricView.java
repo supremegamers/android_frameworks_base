@@ -17,7 +17,6 @@
 package com.android.systemui.biometrics;
 
 import static android.view.Gravity.CENTER;
-import static android.view.WindowManagerPolicyConstants.NAV_BAR_MODE_GESTURAL;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -35,8 +34,6 @@ import android.hardware.biometrics.BiometricPrompt;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.UserHandle;
-import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -49,14 +46,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.systemui.statusbar.phone.StatusBar;
-import com.android.systemui.Dependency;
-
-import com.android.internal.util.sakura.FodUtils;
-
 import com.android.systemui.R;
-
-import lineageos.app.LineageContextConstants;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -114,7 +104,6 @@ public abstract class AuthBiometricView extends LinearLayout {
         int ACTION_BUTTON_TRY_AGAIN = 4;
         int ACTION_ERROR = 5;
         int ACTION_USE_DEVICE_CREDENTIAL = 6;
-        int ACTION_USE_FACE = 7;
 
         /**
          * When an action has occurred. The caller will only invoke this when the callback should
@@ -138,10 +127,6 @@ public abstract class AuthBiometricView extends LinearLayout {
 
         public Button getTryAgainButton() {
             return mBiometricView.findViewById(R.id.button_try_again);
-        }
-
-        public Button getUseFaceButton() {
-            return mBiometricView.findViewById(R.id.button_use_face);
         }
 
         public TextView getTitleView() {
@@ -195,7 +180,6 @@ public abstract class AuthBiometricView extends LinearLayout {
     @VisibleForTesting Button mNegativeButton;
     @VisibleForTesting Button mPositiveButton;
     @VisibleForTesting Button mTryAgainButton;
-    Button mUseFaceButton;
 
     // Measurements when biometric view is showing text, buttons, etc.
     private int mMediumHeight;
@@ -209,7 +193,6 @@ public abstract class AuthBiometricView extends LinearLayout {
     protected boolean mDialogSizeAnimating;
     protected Bundle mSavedState;
 
-    protected boolean mHasFod;
     protected final PackageManager mPackageManager;
 
     /**
@@ -279,13 +262,8 @@ public abstract class AuthBiometricView extends LinearLayout {
         mInjector.mBiometricView = this;
 
         mPackageManager = context.getPackageManager();
-        mHasFod = FodUtils.hasFodSupport(context);
 
         mAccessibilityManager = context.getSystemService(AccessibilityManager.class);
-
-        PackageManager packageManager = context.getPackageManager();
-        mHasFod = packageManager.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT) &&
-                packageManager.hasSystemFeature(LineageContextConstants.Features.FOD);
 
         mResetErrorRunnable = () -> {
             updateState(getStateForAfterError());
@@ -630,7 +608,6 @@ public abstract class AuthBiometricView extends LinearLayout {
         mNegativeButton = mInjector.getNegativeButton();
         mPositiveButton = mInjector.getPositiveButton();
         mTryAgainButton = mInjector.getTryAgainButton();
-        mUseFaceButton = mInjector.getUseFaceButton();
 
         mAppIcon = new ImageView(mContext);
         final int iconDim = getResources().getDimensionPixelSize(
@@ -664,41 +641,6 @@ public abstract class AuthBiometricView extends LinearLayout {
             mTryAgainButton.setVisibility(View.GONE);
             Utils.notifyAccessibilityContentChanged(mAccessibilityManager, this);
         });
-
-        mUseFaceButton.setOnClickListener((view) -> {
-            mCallback.onAction(Callback.ACTION_USE_FACE);
-        });
-
-        if (this instanceof AuthBiometricFingerprintView) {
-            if (!Utils.canAuthenticateWithFace(mContext, mUserId)){
-                mUseFaceButton.setVisibility(View.GONE);
-            }
-            if (mHasFod) {
-                boolean isGesturalNav = Integer.parseInt(Settings.Secure.getStringForUser(
-                        mContext.getContentResolver(), Settings.Secure.NAVIGATION_MODE,
-                        UserHandle.USER_CURRENT)) == NAV_BAR_MODE_GESTURAL;
-                final int navbarHeight = getResources().getDimensionPixelSize(
-                        com.android.internal.R.dimen.navigation_bar_height);
-                final int fodMargin = getResources().getDimensionPixelSize(
-                        R.dimen.biometric_dialog_fod_margin);
-
-                mIconView.setVisibility(View.INVISIBLE);
-                // The view is invisible, so it still takes space and
-                // we use that to adjust for the FOD
-
-                mIconView.setPadding(0, 0, 0, isGesturalNav ? fodMargin : (fodMargin > navbarHeight)
-                    ? (fodMargin - navbarHeight) : 0);
-
-                // Add IndicatorView above the biometric icon
-                this.removeView(mIndicatorView);
-                this.addView(mIndicatorView, this.indexOfChild(mIconView));
-            } else {
-                mIconView.setVisibility(View.VISIBLE);
-            }
-        } else if (this instanceof AuthBiometricFaceView) {
-            mIconView.setVisibility(View.VISIBLE);
-            mUseFaceButton.setVisibility(View.GONE);
-        }
     }
 
     /**
@@ -811,22 +753,9 @@ public abstract class AuthBiometricView extends LinearLayout {
             final View child = getChildAt(i);
 
             if (child.getId() == R.id.biometric_icon) {
-                if (this instanceof AuthBiometricFingerprintView && mHasFod) {
-                    final int buttonBarHeight =
-                            findViewById(R.id.button_bar).getLayoutParams().height;
-                    // The view is invisible, so it still takes space and
-                    // we use that to adjust for the FOD icon
-                    final int fodHeight = Dependency.get(StatusBar.class).getFodHeight(true) -
-                            buttonBarHeight - findViewById(R.id.button_bar).getPaddingTop();
-
-                    child.measure(
-                            MeasureSpec.makeMeasureSpec(newWidth, MeasureSpec.AT_MOST),
-                            MeasureSpec.makeMeasureSpec(fodHeight, MeasureSpec.EXACTLY));
-                } else {
-                    child.measure(
-                            MeasureSpec.makeMeasureSpec(newWidth, MeasureSpec.AT_MOST),
-                            MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST));
-                }
+                child.measure(
+                        MeasureSpec.makeMeasureSpec(newWidth, MeasureSpec.AT_MOST),
+                        MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST));
             } else if (child.getId() == R.id.button_bar) {
                 child.measure(
                         MeasureSpec.makeMeasureSpec(newWidth, MeasureSpec.EXACTLY),

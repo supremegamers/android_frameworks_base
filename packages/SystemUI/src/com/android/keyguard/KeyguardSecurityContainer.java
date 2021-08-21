@@ -33,7 +33,6 @@ import android.app.AlertDialog;
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Insets;
 import android.graphics.Rect;
@@ -127,7 +126,6 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
     private InjectionInflationController mInjectionInflationController;
     private boolean mSwipeUpToRetry;
     private AdminSecondaryLockScreenController mSecondaryLockScreenController;
-    private boolean mHasFod;
 
     private final ViewConfiguration mViewConfiguration;
     private final SpringAnimation mSpringAnimation;
@@ -265,10 +263,6 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
         mKeyguardStateController = Dependency.get(KeyguardStateController.class);
         mSecondaryLockScreenController = new AdminSecondaryLockScreenController(context, this,
                 mUpdateMonitor, mCallback, new Handler(Looper.myLooper()));
-
-        PackageManager packageManager = mContext.getPackageManager();
-        mHasFod = packageManager.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT) &&
-                packageManager.hasSystemFeature(LineageContextConstants.Features.FOD);
     }
 
     public void setSecurityCallback(SecurityCallback callback) {
@@ -525,10 +519,6 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
 
         // Consume bottom insets because we're setting the padding locally (for IME and navbar.)
         int inset;
-        int minBottomMargin = mHasFod && mUpdateMonitor.isFingerprintDetectionRunning() ?
-                getResources().getDimensionPixelSize(
-                        R.dimen.kg_security_container_min_bottom_margin) : 0;
-
         if (sNewInsetsMode == NEW_INSETS_MODE_FULL) {
             int bottomInset = insets.getInsetsIgnoringVisibility(systemBars()).bottom;
             int imeInset = insets.getInsets(ime()).bottom;
@@ -536,8 +526,7 @@ public class KeyguardSecurityContainer extends FrameLayout implements KeyguardSe
         } else {
             inset = insets.getSystemWindowInsetBottom();
         }
-        setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(),
-               minBottomMargin > inset ? minBottomMargin : inset);
+        setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(), inset);
         return insets.inset(0, 0, 0, inset);
     }
 

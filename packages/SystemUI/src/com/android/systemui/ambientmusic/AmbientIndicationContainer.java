@@ -44,7 +44,6 @@ import com.android.systemui.util.wakelock.WakeLock;
 public class AmbientIndicationContainer extends AutoReinflateContainer implements
         NotificationMediaManager.MediaListener {
 
-    private final int mFODmargin;
     private View mAmbientIndication;
     private boolean mDozing;
     private boolean mKeyguard;
@@ -80,8 +79,6 @@ public class AmbientIndicationContainer extends AutoReinflateContainer implement
         initializeMedia();
         mTrackInfoSeparator = getResources().getString(R.string.ambientmusic_songinfo);
         mAmbientMusicTicker = getAmbientMusicTickerStyle();
-        mFODmargin = mContext.getResources().getDimensionPixelSize(
-                R.dimen.keyguard_security_fod_view_margin);
     }
 
     private class CustomSettingsObserver extends ContentObserver {
@@ -153,19 +150,6 @@ public class AmbientIndicationContainer extends AutoReinflateContainer implement
         mMediaManager.addCallback(this);
     }
 
-    private void updatePosition() {
-        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) this.getLayoutParams();
-        if (hasInDisplayFingerprint()) {
-            lp.setMargins(0, 0, 0, mFODmargin);
-        }
-        this.setLayoutParams(lp);
-    }
-
-    private boolean hasInDisplayFingerprint() {
-        return mContext.getResources().getBoolean(
-                com.android.internal.R.bool.config_needCustomFODView);
-    }
-
     public void updateKeyguardState(boolean keyguard) {
         if (keyguard != mKeyguard) {
             mKeyguard = keyguard;
@@ -190,9 +174,6 @@ public class AmbientIndicationContainer extends AutoReinflateContainer implement
         if (mVisible != shouldShow) {
             mVisible = shouldShow;
             mAmbientIndication.setVisibility(shouldShow ? View.VISIBLE : View.INVISIBLE);
-            if (hasInDisplayFingerprint() && shouldShow) {
-                updatePosition();
-            }
         }
     }
 

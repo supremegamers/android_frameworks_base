@@ -723,7 +723,7 @@ public abstract class BiometricServiceBase extends SystemService
      * Callback handlers from the daemon. The caller must put this on a handler.
      */
 
-    public void handleAcquired(long deviceId, int acquiredInfo, int vendorCode) {
+    protected void handleAcquired(long deviceId, int acquiredInfo, int vendorCode) {
         ClientMonitor client = mCurrentClient;
         if (client != null && client.onAcquired(acquiredInfo, vendorCode)) {
             removeClient(client);
@@ -735,7 +735,7 @@ public abstract class BiometricServiceBase extends SystemService
         }
     }
 
-    public void handleAuthenticated(boolean authenticated,
+    protected void handleAuthenticated(boolean authenticated,
             BiometricAuthenticator.Identifier identifier, ArrayList<Byte> token) {
         ClientMonitor client = mCurrentClient;
 
@@ -751,7 +751,7 @@ public abstract class BiometricServiceBase extends SystemService
         }
     }
 
-    public void handleEnrollResult(BiometricAuthenticator.Identifier identifier,
+    protected void handleEnrollResult(BiometricAuthenticator.Identifier identifier,
             int remaining) {
         ClientMonitor client = mCurrentClient;
         if (client != null && client.onEnrollResult(identifier, remaining)) {
@@ -764,7 +764,7 @@ public abstract class BiometricServiceBase extends SystemService
         }
     }
 
-    public void handleError(long deviceId, int error, int vendorCode) {
+    protected void handleError(long deviceId, int error, int vendorCode) {
         final ClientMonitor client = mCurrentClient;
 
         if (DEBUG) Slog.v(getTag(), "handleError(client="
@@ -790,7 +790,7 @@ public abstract class BiometricServiceBase extends SystemService
         }
     }
 
-    public void handleRemoved(BiometricAuthenticator.Identifier identifier,
+    protected void handleRemoved(BiometricAuthenticator.Identifier identifier,
             final int remaining) {
         if (DEBUG) Slog.w(getTag(), "Removed: fid=" + identifier.getBiometricId()
                 + ", dev=" + identifier.getDeviceId()
@@ -816,7 +816,7 @@ public abstract class BiometricServiceBase extends SystemService
         }
     }
 
-    public void handleEnumerate(BiometricAuthenticator.Identifier identifier, int remaining) {
+    protected void handleEnumerate(BiometricAuthenticator.Identifier identifier, int remaining) {
         ClientMonitor client = mCurrentClient;
         if (client != null) {
             client.onEnumerationResult(identifier, remaining);
@@ -1052,7 +1052,7 @@ public abstract class BiometricServiceBase extends SystemService
     /**
      * @return true if this is keyguard package
      */
-    protected boolean isKeyguard(String clientPackage) {
+    private boolean isKeyguard(String clientPackage) {
         return mKeyguardPackage.equals(clientPackage);
     }
 
@@ -1175,7 +1175,7 @@ public abstract class BiometricServiceBase extends SystemService
     /**
      * Populates existing authenticator ids. To be used only during the start of the service.
      */
-    public void loadAuthenticatorIds() {
+    protected void loadAuthenticatorIds() {
         // This operation can be expensive, so keep track of the elapsed time. Might need to move to
         // background if it takes too long.
         long t = System.currentTimeMillis();
@@ -1254,7 +1254,7 @@ public abstract class BiometricServiceBase extends SystemService
      * This method should be called upon connection to the daemon, and when user switches.
      * @param userId
      */
-    public void doTemplateCleanupForUser(int userId) {
+    protected void doTemplateCleanupForUser(int userId) {
         if (mCleanupUnusedFingerprints) {
             enumerateUser(userId);
         }
@@ -1318,7 +1318,7 @@ public abstract class BiometricServiceBase extends SystemService
         doTemplateCleanupForUser(userId);
     }
 
-    public void notifyLockoutResetMonitors() {
+    protected void notifyLockoutResetMonitors() {
         for (int i = 0; i < mLockoutMonitors.size(); i++) {
             mLockoutMonitors.get(i).sendLockoutReset();
         }

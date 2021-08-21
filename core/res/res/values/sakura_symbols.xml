@@ -42,9 +42,6 @@
   <java-symbol type="array" name="config_deviceKeyHandlerLibs" />
   <java-symbol type="array" name="config_deviceKeyHandlerClasses" />
 
-  <!-- Enable face auth only when swiping security view -->
-  <java-symbol type="bool" name="config_faceAuthOnlyOnSecurityView" />
-
   <!-- Smart cutoff temperature -->
   <java-symbol type="integer" name="config_smartCutoffTemperature" />
   <java-symbol type="integer" name="config_smartCutoffResumeTemperature" />
@@ -56,7 +53,4 @@
   <!-- System fonts --> 
   <java-symbol type="array" name="config_fontPackages" />
   <java-symbol type="string" name="fontservice_incompatible_font" />
-
-  <!-- Whether to show a custom view for FOD -->
-  <java-symbol type="bool" name="config_needCustomFODView" />
 </resources>
