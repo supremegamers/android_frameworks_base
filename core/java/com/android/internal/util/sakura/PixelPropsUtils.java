@@ -71,7 +71,8 @@ public class PixelPropsUtils {
             "com.samsung.android.gearpplugin",
             "com.samsung.android.gearrplugin",
             "com.samsung.android.modenplugin",
-            "com.samsung.android.neatplugin"
+            "com.samsung.android.neatplugin",
+            "com.samsung.android.waterplugin"
     };
 
     static {
