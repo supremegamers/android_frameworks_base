@@ -2,3 +2,7 @@
 *.iml
 *.sw*
 gen/
+.classpath
+.gradle/
+.project
+.settings/
