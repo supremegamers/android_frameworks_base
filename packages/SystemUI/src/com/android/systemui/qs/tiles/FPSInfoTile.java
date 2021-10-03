@@ -118,7 +118,7 @@ public class FPSInfoTile extends QSTileImpl<BooleanState> {
 
     @Override
     public int getMetricsCategory() {
-        return MetricsEvent.BLINX_SETTINGS;
+        return MetricsEvent.MATERIUM;
     }
 
     @Override
