@@ -20,7 +20,6 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
-import android.content.pm.ActivityInfo;
 import android.graphics.PixelFormat;
 import android.hardware.biometrics.BiometricAuthenticator;
 import android.hardware.biometrics.BiometricConstants;
@@ -468,7 +467,7 @@ public class AuthContainerView extends LinearLayout
         if (mBiometricView != null) {
             mBiometricView.restoreState(savedState);
         }
-        wm.addView(this, getLayoutParams(mWindowToken, mBiometricView.getHasFod()));
+        wm.addView(this, getLayoutParams(mWindowToken));
     }
 
     @Override
@@ -633,7 +632,7 @@ public class AuthContainerView extends LinearLayout
      * @param windowToken token for the window
      * @return
      */
-    public static WindowManager.LayoutParams getLayoutParams(IBinder windowToken, boolean hasFod) {
+    public static WindowManager.LayoutParams getLayoutParams(IBinder windowToken) {
         final int windowFlags = WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
                 | WindowManager.LayoutParams.FLAG_SECURE;
         final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
@@ -646,9 +645,6 @@ public class AuthContainerView extends LinearLayout
         lp.setFitInsetsTypes(lp.getFitInsetsTypes() & ~WindowInsets.Type.ime());
         lp.setTitle("BiometricPrompt");
         lp.token = windowToken;
-        if (hasFod) {
-            lp.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
-        }
         return lp;
     }
 }
