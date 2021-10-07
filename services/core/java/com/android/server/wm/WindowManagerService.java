@@ -147,6 +147,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManagerInternal;
@@ -258,6 +259,7 @@ import android.view.WindowManager.TransitionType;
 import android.view.WindowManagerGlobal;
 import android.view.WindowManagerPolicyConstants.PointerEventListener;
 
+import com.android.internal.BoringdroidManager;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.os.BackgroundThread;
@@ -8324,4 +8326,26 @@ public class WindowManagerService extends IWindowManager.Stub
     public void takeAlternativeScreenshot() {
         mPolicy.takeAlternativeScreenshot();
     }
+    // region @boringdroid
+    /**
+     * @hide
+     */
+    public static Context getWMSContext() {
+        return getInstance().mContext;
+    }
+
+    /**
+     * @hide
+     */
+    public int getPackageOverlayWindowingMode(String packageName) {
+        return BoringdroidManager.getPackageOverlayWindowingMode(getWMSContext(), packageName);
+    }
+
+    /**
+     * @hide
+     */
+    public void savePackageOverlayWindowingMode(String packageName, int windowingMode) {
+        BoringdroidManager.savePackageOverlayWindowingMode(getWMSContext(), packageName, windowingMode);
+    }
+    // endregion
 }
