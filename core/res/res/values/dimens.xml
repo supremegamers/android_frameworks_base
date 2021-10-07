@@ -863,4 +863,7 @@
     <!-- toast icons -->
     <dimen name="toast_elevation">4dp</dimen>
 
+    <!-- region @boringdroid -->
+    <item name="decor_corner_radius" type="dimen">8dp</item>
+    <!-- endregion -->
 </resources>

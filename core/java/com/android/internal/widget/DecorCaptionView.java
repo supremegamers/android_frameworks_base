@@ -29,6 +29,7 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.Window;
+import android.widget.Toast;
 
 import com.android.internal.R;
 import com.android.internal.policy.DecorView;
@@ -104,12 +105,12 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
     private final Rect mMaximizeRect = new Rect();
     private final Rect mMinimizeRect = new Rect();
     private final Rect mPipRect = new Rect();
+    private final Rect mBackRect = new Rect();
     private View mClickTarget;
     private int mRootScrollY;
-    // region @boringdroid
+    private View mPip;
+    private View mMinimize;
     private View mBack;
-    private final Rect mBackRect = new Rect();
-    // endregion
 
     public DecorCaptionView(Context context) {
         super(context);
@@ -295,8 +296,14 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
         if (mCaption.getVisibility() != View.GONE) {
             measureChildWithMargins(mCaption, widthMeasureSpec, 0, heightMeasureSpec, 0);
             captionHeight = mCaption.getMeasuredHeight();
+            mPip.getHitRect(mPipRect);
+            mMinimize.getHitRect(mMinimizeRect);
+            mBack.getHitRect(mBackRect);
         } else {
             captionHeight = 0;
+            mPipRect.setEmpty();
+            mMinimizeRect.setEmpty();
+            mBackRect.setEmpty();
         }
         if (mContent != null) {
             if (mOverlayWithAppContent) {
