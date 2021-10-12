@@ -65,7 +65,19 @@ public class PixelPropsUtils {
     };
 
     private static final String[] packagesToChangePixelXL = {
-            "com.google.android.apps.photos"
+            "com.google.android.apps.photos",
+            "com.samsung.android.app.watchmanager",
+            "com.samsung.accessory",
+            "com.samsung.accessory.fridaymgr",
+            "com.samsung.accessory.berrymgr",
+            "com.samsung.accessory.neobeanmgr",
+            "com.samsung.android.geargplugin",
+            "com.samsung.android.gearnplugin",
+            "com.samsung.android.gearpplugin",
+            "com.samsung.android.gearrplugin",
+            "com.samsung.android.modenplugin",
+            "com.samsung.android.neatplugin",
+            "com.samsung.android.waterplugin"
     };
 
     private static final String[] packagesToChangePixel3XL = {
@@ -84,7 +96,7 @@ public class PixelPropsUtils {
         propsToChange.put("DEVICE", "redfin");
         propsToChange.put("PRODUCT", "redfin");
         propsToChange.put("MODEL", "Pixel 5");
-        propsToChange.put("FINGERPRINT", "google/redfin/redfin:11/RQ3A.210605.005/7349499:user/release-keys");
+        propsToChange.put("FINGERPRINT", "google/redfin/redfin:11/RQ3A.211001.001/7641976:user/release-keys");
         propsToChangePixelXL = new HashMap<>();
         propsToChangePixelXL.put("BRAND", "google");
         propsToChangePixelXL.put("MANUFACTURER", "Google");
@@ -103,7 +115,7 @@ public class PixelPropsUtils {
         propsToChangePixel3XL.put("DEVICE", "crosshatch");
         propsToChangePixel3XL.put("PRODUCT", "crosshatch");
         propsToChangePixel3XL.put("MODEL", "Pixel 3 XL");
-        propsToChangePixel3XL.put("FINGERPRINT", "google/crosshatch/crosshatch:11/RQ3A.210605.005/7349499:user/release-keys");
+        propsToChangePixel3XL.put("FINGERPRINT", "google/crosshatch/crosshatch:11/RQ3A.211001.001/7641976:user/release-keys");
         propsToChangePixel3XL.put("IS_DEBUGGABLE", false);
         propsToChangePixel3XL.put("IS_ENG", false);
         propsToChangePixel3XL.put("IS_USERDEBUG", false);
@@ -122,8 +134,9 @@ public class PixelPropsUtils {
             for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
                 String key = prop.getKey();
                 Object value = prop.getValue();
+                // Don't set model if gms
                 if (packageName.equals("com.google.android.gms") && key.equals("MODEL")) {
-                    value = value + "\u200b";
+                    continue;
                 }
                 setPropValue(key, value);
             }
