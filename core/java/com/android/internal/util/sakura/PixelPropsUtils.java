@@ -67,6 +67,7 @@ public class PixelPropsUtils {
     private static final String[] packagesToChangePixelXL = {
             "com.google.android.apps.photos",
             "com.samsung.android.app.watchmanager",
+            "com.samsung.accessory",
             "com.samsung.accessory.fridaymgr",
             "com.samsung.accessory.berrymgr",
             "com.samsung.accessory.neobeanmgr",
