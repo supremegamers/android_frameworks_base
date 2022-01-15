@@ -287,6 +287,7 @@ public class VolumeDialogImpl implements VolumeDialog,
     }
 
     private void initDialog() {
+
         mDialog = new CustomDialog(mContext);
         mConfigurableTexts = new ConfigurableTexts(mContext);
         mHovering = false;
