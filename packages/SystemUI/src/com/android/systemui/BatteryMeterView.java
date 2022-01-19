@@ -422,7 +422,7 @@ public class BatteryMeterView extends LinearLayout implements
         boolean shouldShow =
                 (drawPercentOnly && (!drawPercentInside || mCharging))
                 || mBatteryStyle == BATTERY_STYLE_TEXT;
-        shouldShow = shouldShow;
+        shouldShow = shouldShow && !mBatteryStateUnknown;
 
         if (shouldShow) {
             mCircleDrawable.setShowPercent(false);
