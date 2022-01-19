@@ -16,5 +16,4 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="status_deep_sleep">(深度睡眠： %1$d%2$s)</string>
-    <string name="app_pip_not_support">此应用不支持画中画模式</string>
 </resources>

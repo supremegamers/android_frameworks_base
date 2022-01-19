@@ -60,7 +60,6 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.os.SystemProperties;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.transition.Scene;
@@ -373,9 +372,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         // an user can force using it through developer options.
         boolean forceResizable = Settings.Global.getInt(context.getContentResolver(),
                 DEVELOPMENT_FORCE_RESIZABLE_ACTIVITIES, 0) != 0;
-        // region @boringdroidd
-        forceResizable |= SystemProperties.getBoolean("persist.sys.systemuiplugin.enabled", false);
-        // endregion
         mSupportsPictureInPicture = forceResizable || context.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_PICTURE_IN_PICTURE);
         mActivityConfigCallback = activityConfigCallback;

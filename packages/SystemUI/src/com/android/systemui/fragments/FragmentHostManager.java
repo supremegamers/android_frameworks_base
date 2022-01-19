@@ -22,10 +22,8 @@ import android.app.FragmentManager;
 import android.app.FragmentManager.FragmentLifecycleCallbacks;
 import android.app.FragmentManagerNonConfig;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -36,11 +34,9 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 
-import com.android.internal.BoringdroidManager;
 import com.android.settingslib.applications.InterestingConfigChanges;
 import com.android.systemui.Dependency;
 import com.android.systemui.plugins.Plugin;
-import com.android.systemui.shared.plugins.PluginManagerImpl;
 import com.android.systemui.util.leak.LeakDetector;
 
 import java.io.FileDescriptor;
@@ -161,15 +157,6 @@ public class FragmentHostManager {
     protected void onConfigurationChanged(Configuration newConfig) {
         if (mConfigChanges.applyNewConfig(mContext.getResources())) {
             reloadFragments();
-            // region @boringdroid
-            if (BoringdroidManager.IS_SYSTEMUI_PLUGIN_ENABLED) {
-                Intent intent = new Intent(
-                        PluginManagerImpl.PLUGIN_CHANGED,
-                        Uri.fromParts("package", "org.sakura.brdroid.systemui", null)
-                );
-                mContext.sendBroadcast(intent);
-            }
-            // endregion
         } else {
             mFragments.dispatchConfigurationChanged(newConfig);
         }

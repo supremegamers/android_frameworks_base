@@ -184,9 +184,6 @@ public final class PhoneStateMonitor {
         if (runningTaskInfo == null) {
             return false;
         } else {
-            if (runningTaskInfo.topActivity == null) {
-                return false;
-            }
             return runningTaskInfo.topActivity.equals(mDefaultHome);
         }
     }

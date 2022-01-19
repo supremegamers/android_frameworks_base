@@ -16,5 +16,4 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="status_deep_sleep">(Ngủ sâu: %1$d%2$s)</string>
-    <string name="app_pip_not_support">Ứng dụng này không hỗ trợ Picture in Picture (PIP)</string>
 </resources>
