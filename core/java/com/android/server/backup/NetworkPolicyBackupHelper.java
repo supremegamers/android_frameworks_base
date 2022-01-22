@@ -70,5 +70,4 @@ public class NetworkPolicyBackupHelper extends BlobBackupHelper {
             }
         }
     }
-
 }

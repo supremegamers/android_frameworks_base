@@ -2249,7 +2249,8 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
         }
     }
 
-    private void readPolicyXml(InputStream inputStream, boolean forRestore) throws IOException, XmlPullParserException {
+    private void readPolicyXml(InputStream inputStream, boolean forRestore) throws IOException,
+            XmlPullParserException {
         final XmlPullParser in = Xml.newPullParser();
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
 
@@ -2525,9 +2526,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
         FileOutputStream fos = null;
         try {
             fos = mPolicyFile.startWrite();
-
             writePolicyXml(fos, false);
-
             mPolicyFile.finishWrite(fos);
         } catch (IOException e) {
             if (fos != null) {
@@ -2616,7 +2615,6 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
             if (policy == POLICY_NONE) continue;
 
             out.startTag(null, TAG_UID_POLICY);
-
             if (!forBackup) {
                 writeIntAttribute(out, ATTR_UID, uid);
             } else {
@@ -5592,6 +5590,15 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
             mMeteredRestrictedUids.put(userId, newRestrictedUids);
             handleRestrictedPackagesChangeUL(oldRestrictedUids, newRestrictedUids);
             mLogger.meteredRestrictedPkgsChanged(newRestrictedUids);
+        }
+    }
+
+    private int readUidAttribute(XmlPullParser in, boolean forRestore) throws IOException {
+        if (!forRestore) {
+            return readIntAttribute(in, ATTR_UID);
+        } else {
+            return getUidForPackage(readStringAttribute(in, ATTR_XML_UTILS_NAME),
+                    readIntAttribute(in, ATTR_USER_ID));
         }
     }
 
