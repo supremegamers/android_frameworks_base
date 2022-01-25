@@ -431,18 +431,6 @@ public class BrightnessController implements ToggleSlider.Listener {
         }
     }
 
-    public void checkRestrictionAndSetEnabled() {
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                ((ToggleSliderView)mControl).setEnforcedAdmin(
-                        RestrictedLockUtilsInternal.checkIfRestrictionEnforced(mContext,
-                                UserManager.DISALLOW_CONFIG_BRIGHTNESS,
-                                mUserTracker.getCurrentUserId())).sendToTarget();
-            }
-        });
-    }
-
     private void setMode(int mode) {
         Settings.System.putIntForUser(mContext.getContentResolver(),
                 Settings.System.SCREEN_BRIGHTNESS_MODE, mode,
