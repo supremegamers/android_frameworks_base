@@ -58,8 +58,8 @@ public class BatteryStatus {
     public final float temperature;
 
     public BatteryStatus(int status, int level, int plugged, int health,
-            int maxChargingWattage, boolean present,
-	    int maxChargingCurrent, int maxChargingVoltage, float temperature) {
+            int maxChargingWattage, int maxChargingCurrent,
+	    int maxChargingVoltage, float temperature,  boolean present) {
 
         this.status = status;
         this.level = level;
