@@ -970,6 +970,11 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
         public boolean showBeforeProvisioning() {
             return true;
         }
+
+        @Override
+        public boolean shouldShow() {
+            return mHasTelephony;
+        }
     }
 
     private class EmergencyAffordanceAction extends EmergencyAction {
@@ -1016,7 +1021,9 @@ public class GlobalActionsDialog implements DialogInterface.OnDismissListener,
     @VisibleForTesting
     final class RestartAction extends SinglePressAction implements LongPressAction {
         private RestartAction() {
-            super(R.drawable.ic_restart, R.string.global_action_restart);
+            super(R.drawable.ic_restart, shouldShowRestartSubmenu()
+                    ? com.android.systemui.R.string.global_action_restart_more
+                    : R.string.global_action_restart);
         }
 
         @Override
