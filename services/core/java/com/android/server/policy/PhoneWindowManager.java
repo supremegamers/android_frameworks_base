@@ -144,6 +144,7 @@ import android.os.FactoryTest;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.IDeviceIdleController;
+import android.os.Looper;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeReason;
@@ -3756,12 +3757,26 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
         return new Rect();
     }
+    
+    private String focusedAppPkg = "";
 
     @Override
     public void onDefaultDisplayFocusChangedLw(WindowState newFocus) {
         if (mDisplayFoldController != null) {
             mDisplayFoldController.onDefaultDisplayFocusChanged(
                     newFocus != null ? newFocus.getOwningPackage() : null);
+        }
+        if(newFocus != null && newFocus.getOwningPackage() != null && !focusedAppPkg.equals(newFocus.getOwningPackage()) ) {
+            focusedAppPkg = newFocus.getOwningPackage();
+            try {
+                    SystemProperties.set("persist.sys.nodataperm", "1");
+                     new Handler(Looper.getMainLooper()).postDelayed(() ->
+                     SystemProperties.set("persist.sys.nodataperm", "0"), 500);
+                      new Handler(Looper.getMainLooper()).postDelayed(() ->
+                         SystemProperties.set("persist.sys.nodataperm", "1"), 1000);
+            } catch (Exception e) {
+                    Log.e("nodataperm", "ERROR ", e);
+            }
         }
     }
 
