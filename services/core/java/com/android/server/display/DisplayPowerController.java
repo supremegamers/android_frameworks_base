@@ -72,6 +72,8 @@ import com.android.server.lights.LightsManager;
 import com.android.server.lights.LogicalLight;
 import com.android.server.policy.WindowManagerPolicy;
 
+import lineageos.providers.LineageSettings;
+
 import java.io.PrintWriter;
 
 /**
@@ -439,6 +441,9 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
     // This should be false during system start up.
     private boolean mPendingRbcOnOrChanged = false;
 
+    // Whether auto brightness is applied one shot when screen is turned on
+    private boolean mAutoBrightnessOneShot;
+
     // Animators.
     private ObjectAnimator mColorFadeOnAnimator;
     private ObjectAnimator mColorFadeOffAnimator;
@@ -478,6 +483,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
         mWindowManagerPolicy = LocalServices.getService(WindowManagerPolicy.class);
         mBlanker = blanker;
         mContext = context;
+        mAutoBrightnessOneShot = getAutoBrightnessOneShotSetting();
         mBrightnessTracker = brightnessTracker;
         // TODO: b/186428377 update brightness setting when display changes
         mBrightnessSetting = brightnessSetting;
@@ -801,7 +807,6 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
     private void loadFromDisplayDeviceConfig(IBinder token, DisplayDeviceInfo info) {
         // All properties that depend on the associated DisplayDevice and the DDC must be
         // updated here.
-        loadAmbientLightSensor();
         loadBrightnessRampRates();
         loadProximitySensor();
         loadNitsRange(mContext.getResources());
@@ -866,6 +871,9 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
         mContext.getContentResolver().registerContentObserver(
                 Settings.System.getUriFor(Settings.System.SCREEN_AUTO_BRIGHTNESS_ADJ),
                 false /*notifyForDescendants*/, mSettingsObserver, UserHandle.USER_ALL);
+        mContext.getContentResolver().registerContentObserver(
+                LineageSettings.System.getUriFor(LineageSettings.System.AUTO_BRIGHTNESS_ONE_SHOT),
+                false /*notifyForDescendants*/, mSettingsObserver, UserHandle.USER_ALL);
     }
 
     private void setUpAutoBrightness(Resources resources, Handler handler) {
@@ -886,9 +894,14 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                     com.android.internal.R.array.config_ambientDarkeningThresholds);
             int[] ambientThresholdLevels = resources.getIntArray(
                     com.android.internal.R.array.config_ambientThresholdLevels);
+            float ambientDarkeningMinThreshold =
+                    mDisplayDeviceConfig.getAmbientLuxDarkeningMinThreshold();
+            float ambientBrighteningMinThreshold =
+                    mDisplayDeviceConfig.getAmbientLuxBrighteningMinThreshold();
             HysteresisLevels ambientBrightnessThresholds = new HysteresisLevels(
                     ambientBrighteningThresholds, ambientDarkeningThresholds,
-                    ambientThresholdLevels);
+                    ambientThresholdLevels, ambientDarkeningMinThreshold,
+                    ambientBrighteningMinThreshold);
 
             int[] screenBrighteningThresholds = resources.getIntArray(
                     com.android.internal.R.array.config_screenBrighteningThresholds);
@@ -896,8 +909,13 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                     com.android.internal.R.array.config_screenDarkeningThresholds);
             int[] screenThresholdLevels = resources.getIntArray(
                     com.android.internal.R.array.config_screenThresholdLevels);
+            float screenDarkeningMinThreshold =
+                    mDisplayDeviceConfig.getScreenDarkeningMinThreshold();
+            float screenBrighteningMinThreshold =
+                    mDisplayDeviceConfig.getScreenBrighteningMinThreshold();
             HysteresisLevels screenBrightnessThresholds = new HysteresisLevels(
-                    screenBrighteningThresholds, screenDarkeningThresholds, screenThresholdLevels);
+                    screenBrighteningThresholds, screenDarkeningThresholds, screenThresholdLevels,
+                    screenDarkeningMinThreshold, screenBrighteningMinThreshold);
 
             long brighteningLightDebounce = resources.getInteger(
                     com.android.internal.R.integer.config_autoBrightnessBrighteningLightDebounce);
@@ -921,6 +939,9 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
             }
 
             loadAmbientLightSensor();
+            if (mBrightnessTracker != null) {
+                mBrightnessTracker.setLightSensor(mLightSensor);
+            }
 
             if (mAutomaticBrightnessController != null) {
                 mAutomaticBrightnessController.stop();
@@ -1226,7 +1247,8 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                     mBrightnessConfiguration,
                     mLastUserSetScreenBrightness,
                     userSetBrightnessChanged, autoBrightnessAdjustment,
-                    autoBrightnessAdjustmentChanged, mPowerRequest.policy);
+                    autoBrightnessAdjustmentChanged, mPowerRequest.policy,
+                    mAutoBrightnessOneShot);
         }
 
         if (mBrightnessTracker != null) {
@@ -2058,7 +2080,14 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
         // We don't bother with a pending variable for VR screen brightness since we just
         // immediately adapt to it.
         mScreenBrightnessForVr = getScreenBrightnessForVrSetting();
+        mAutoBrightnessOneShot = getAutoBrightnessOneShotSetting();
         sendUpdatePowerState();
+    }
+
+    private boolean getAutoBrightnessOneShotSetting() {
+        return LineageSettings.System.getIntForUser(
+                mContext.getContentResolver(), LineageSettings.System.AUTO_BRIGHTNESS_ONE_SHOT,
+                0, UserHandle.USER_CURRENT) == 1;
     }
 
     private float getAutoBrightnessAdjustmentSetting() {

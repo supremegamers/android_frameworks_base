@@ -202,6 +202,7 @@ import com.android.systemui.statusbar.PulseExpansionHandler;
 import com.android.systemui.statusbar.StatusBarState;
 import com.android.systemui.statusbar.SysuiStatusBarStateController;
 import com.android.systemui.statusbar.VisualizerView;
+import com.android.systemui.statusbar.charging.WiredChargingRippleController;
 import com.android.systemui.statusbar.connectivity.NetworkController;
 import com.android.systemui.statusbar.events.SystemStatusAnimationScheduler;
 import com.android.systemui.statusbar.notification.DynamicPrivacyController;
@@ -492,6 +493,7 @@ public class StatusBar extends SystemUI implements
     private boolean mWakeUpComingFromTouch;
     private PointF mWakeUpTouchLocation;
     private LightRevealScrim mLightRevealScrim;
+    private WiredChargingRippleController mChargingRippleAnimationController;
     private PowerButtonReveal mPowerButtonReveal;
 
     private final Object mQueueLock = new Object();
@@ -805,6 +807,7 @@ public class StatusBar extends SystemUI implements
             StatusBarTouchableRegionManager statusBarTouchableRegionManager,
             NotificationIconAreaController notificationIconAreaController,
             BrightnessSliderController.Factory brightnessSliderFactory,
+            WiredChargingRippleController chargingRippleAnimationController,
             WallpaperController wallpaperController,
             OngoingCallController ongoingCallController,
             SystemStatusAnimationScheduler animationScheduler,
@@ -903,6 +906,7 @@ public class StatusBar extends SystemUI implements
         mDemoModeController = demoModeController;
         mNotificationIconAreaController = notificationIconAreaController;
         mBrightnessSliderFactory = brightnessSliderFactory;
+        mChargingRippleAnimationController = chargingRippleAnimationController;
         mWallpaperController = wallpaperController;
         mOngoingCallController = ongoingCallController;
         mAnimationScheduler = animationScheduler;
@@ -1406,8 +1410,11 @@ public class StatusBar extends SystemUI implements
      * keyguard.
      */
     private void dispatchPanelExpansionForKeyguardDismiss(float fraction, boolean trackingTouch) {
-        // Things that mean we're not dismissing the keyguard, and should ignore this expansion:
+        // Things that mean we're not swiping to dismiss the keyguard, and should ignore this
+        // expansion:
         // - Keyguard isn't even visible.
+        // - Keyguard is occluded. Expansion changes here are the shade being expanded over the
+        //   occluding activity.
         // - Keyguard is visible, but can't be dismissed (swiping up will show PIN/password prompt).
         // - The SIM is locked, you can't swipe to unlock. If the SIM is locked but there is no
         //   device lock set, canDismissLockScreen returns true even though you should not be able
@@ -1415,6 +1422,7 @@ public class StatusBar extends SystemUI implements
         // - QS is expanded and we're swiping - swiping up now will hide QS, not dismiss the
         //   keyguard.
         if (!isKeyguardShowing()
+                || mIsOccluded
                 || !mKeyguardStateController.canDismissLockScreen()
                 || mKeyguardViewMediator.isAnySimPinSecure()
                 || (mNotificationPanelViewController.isQsExpanded() && trackingTouch)) {
@@ -3137,6 +3145,7 @@ public class StatusBar extends SystemUI implements
     }
 
     public void showKeyguardImpl() {
+        Trace.beginSection("StatusBar#showKeyguard");
         mIsKeyguard = true;
         if (mKeyguardStateController.isLaunchTransitionFadingAway()) {
             mNotificationPanelViewController.cancelAnimation();
@@ -3149,6 +3158,7 @@ public class StatusBar extends SystemUI implements
             mStatusBarStateController.setState(StatusBarState.KEYGUARD);
         }
         updatePanelExpansionForKeyguard();
+        Trace.endSection();
     }
 
     private void updatePanelExpansionForKeyguard() {
@@ -3738,26 +3748,29 @@ public class StatusBar extends SystemUI implements
         public void onStartedWakingUp() {
             String tag = "StatusBar#onStartedWakingUp";
             DejankUtils.startDetectingBlockingIpcs(tag);
-            mDeviceInteractive = true;
-            mWakeUpCoordinator.setWakingUp(true);
-            if (!mKeyguardBypassController.getBypassEnabled()) {
-                mHeadsUpManager.releaseAllImmediately();
-            }
-            updateVisibleToUser();
-            updateIsKeyguard();
-            mDozeServiceHost.stopDozing();
-            // This is intentionally below the stopDozing call above, since it avoids that we're
-            // unnecessarily animating the wakeUp transition. Animations should only be enabled
-            // once we fully woke up.
-            updateRevealEffect(true /* wakingUp */);
-            updateNotificationPanelTouchState();
+            mNotificationShadeWindowController.batchApplyWindowLayoutParams(()-> {
+                mDeviceInteractive = true;
+                mWakeUpCoordinator.setWakingUp(true);
+                if (!mKeyguardBypassController.getBypassEnabled()) {
+                    mHeadsUpManager.releaseAllImmediately();
+                }
+                updateVisibleToUser();
+                updateIsKeyguard();
+                mDozeServiceHost.stopDozing();
+                // This is intentionally below the stopDozing call above, since it avoids that we're
+                // unnecessarily animating the wakeUp transition. Animations should only be enabled
+                // once we fully woke up.
+                updateRevealEffect(true /* wakingUp */);
+                updateNotificationPanelTouchState();
 
-            // If we are waking up during the screen off animation, we should undo making the
-            // expanded visible (we did that so the LightRevealScrim would be visible).
-            if (mUnlockedScreenOffAnimationController.isScreenOffLightRevealAnimationPlaying()) {
-                makeExpandedInvisible();
-            }
+                // If we are waking up during the screen off animation, we should undo making the
+                // expanded visible (we did that so the LightRevealScrim would be visible).
+                if (mUnlockedScreenOffAnimationController
+                        .isScreenOffLightRevealAnimationPlaying()) {
+                    makeExpandedInvisible();
+                }
 
+            });
             DejankUtils.stopDetectingBlockingIpcs(tag);
         }
 
