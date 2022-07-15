@@ -33,51 +33,36 @@ public class PixelPropsUtils {
     private static final Map<String, Object> propsToChangePixel3XL;
 
     private static final String[] packagesToChange = {
-        "com.breel.wallpapers20",
-        "com.google.android.configupdater",
-        "com.google.android.apps.customization.pixel",
-        "com.google.android.apps.fitness",
-        "com.google.android.apps.gcs",
-        "com.google.android.apps.maps",
-        "com.google.android.apps.messaging",
-        "com.google.android.apps.nexuslauncher",
-        "com.google.android.apps.pixelmigrate",
-        "com.google.android.apps.recorder",
-        "com.google.android.apps.safetyhub",
-        "com.google.android.apps.subscriptions.red",
-        "com.google.android.apps.tachyon",
-        "com.google.android.apps.turbo",
-        "com.google.android.apps.turboadapter",
-        "com.google.android.apps.wallpaper",
-        "com.google.android.apps.wallpaper.pixel",
-        "com.google.android.apps.wellbeing",
-        "com.google.android.as",
-        "com.google.android.dialer",
-        "com.google.android.ext.services",
-        "com.google.android.gms",
-        "com.google.android.gms.location.history",
-        "com.google.android.gsf",
-        "com.google.android.inputmethod.latin",
-        "com.google.android.soundpicker",
-        "com.google.intelligence.sense",
-        "com.google.pixel.dynamicwallpapers",
-        "com.google.pixel.livewallpaper"
+            "com.android.vending",
+            "com.breel.wallpapers20",
+            "com.google.android.apps.customization.pixel",
+            "com.google.android.apps.fitness",
+            "com.google.android.apps.recorder",
+            "com.google.android.apps.subscriptions.red",
+            "com.google.android.apps.tachyon",
+            "com.google.android.apps.turboadapter",
+            "com.google.android.apps.wallpaper.pixel",
+            "com.google.android.as",
+            "com.google.android.dialer",
+            "com.google.android.gms.location.history",
+            "com.google.android.inputmethod.latin",
+            "com.google.android.soundpicker",
+            "com.google.pixel.dynamicwallpapers",
+            "com.google.pixel.livewallpaper",
+            "com.google.android.apps.safetyhub",
+            "com.google.android.apps.turbo",
+            "com.google.android.apps.wallpaper",
+            "com.google.android.apps.maps",
+            "com.google.android.gms",
+            "com.google.android.apps.nexuslauncher",
+            "com.amazon.avod.thirdpartyclient",
+            "com.disney.disneyplus",
+            "com.netflix.mediaclient",
+            "in.startv.hotstar"
     };
 
     private static final String[] packagesToChangePixelXL = {
-            "com.google.android.apps.photos",
-            "com.samsung.android.app.watchmanager",
-            "com.samsung.accessory",
-            "com.samsung.accessory.fridaymgr",
-            "com.samsung.accessory.berrymgr",
-            "com.samsung.accessory.neobeanmgr",
-            "com.samsung.android.geargplugin",
-            "com.samsung.android.gearnplugin",
-            "com.samsung.android.gearpplugin",
-            "com.samsung.android.gearrplugin",
-            "com.samsung.android.modenplugin",
-            "com.samsung.android.neatplugin",
-            "com.samsung.android.waterplugin"
+            "com.google.android.apps.photos"
     };
 
     private static final String[] packagesToChangePixel3XL = {
@@ -96,7 +81,7 @@ public class PixelPropsUtils {
         propsToChange.put("DEVICE", "raven");
         propsToChange.put("PRODUCT", "raven");
         propsToChange.put("MODEL", "Pixel 6 Pro");
-        propsToChange.put("FINGERPRINT", "google/raven/raven:12/SQ1D.220105.007/8030436:user/release-keys");
+        propsToChange.put("FINGERPRINT", "google/raven/raven:12/SQ3A.220605.009.B1/8650216:user/release-keys");
         propsToChangePixelXL = new HashMap<>();
         propsToChangePixelXL.put("BRAND", "google");
         propsToChangePixelXL.put("MANUFACTURER", "Google");
@@ -135,7 +120,7 @@ public class PixelPropsUtils {
                 String key = prop.getKey();
                 Object value = prop.getValue();
                 // Don't set model if gms
-                if (packageName.equals("com.google.android.gms") && key.equals("MODEL")) {
+                if (packageName.equals("com.google.android.gms") && key.equals("MODEL")){
                     continue;
                 }
                 setPropValue(key, value);
