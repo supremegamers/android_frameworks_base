@@ -1159,8 +1159,7 @@ public class Instrumentation {
         Application app = getFactory(context.getPackageName())
                 .instantiateApplication(cl, className);
         app.attach(context);
-	String packageName = app.getPackageName();
-        PixelPropsUtils.setProps(packageName);
+        PixelPropsUtils.setProps(app);
         return app;
     }
     
@@ -1178,8 +1177,7 @@ public class Instrumentation {
             ClassNotFoundException {
         Application app = (Application)clazz.newInstance();
         app.attach(context);
-	String packageName = app.getPackageName();
-        PixelPropsUtils.setProps(packageName);
+        PixelPropsUtils.setProps(app);
         return app;
     }
 

@@ -15,6 +15,7 @@
  */
 package com.android.internal.util.custom;
 
+import android.app.Application;
 import android.os.Build;
 import android.util.Log;
 
@@ -108,7 +109,9 @@ public class PixelPropsUtils {
         propsToChangePixel3XL.put("TYPE", "user");
     }
 
-    public static void setProps(String packageName) {
+    public static void setProps(Application app) {
+        final String packageName = app.getPackageName();
+        final String processName = app.getProcessName();
         if (packageName == null){
             return;
         }
@@ -119,8 +122,8 @@ public class PixelPropsUtils {
             for (Map.Entry<String, Object> prop : propsToChange.entrySet()) {
                 String key = prop.getKey();
                 Object value = prop.getValue();
-                // Don't set model if gms
-                if (packageName.equals("com.google.android.gms") && key.equals("MODEL")){
+                // Don't set model if a GMS process, don't set any property if not GMS Unstable
+                if (packageName.equals("com.google.android.gms") && (key.equals("MODEL") || !processName.equals("com.google.android.gms.unstable"))){
                     continue;
                 }
                 setPropValue(key, value);
