@@ -419,9 +419,9 @@ public class StorageNotification extends SystemUI {
                             R.bool.config_persistUsbDriveNotification))
                     .setCategory(Notification.CATEGORY_SYSTEM);
             // USB disks notification can be persistent
-            if (disk.isUsb()) {
-                builder.setOngoing(true);
-            }
+//            if (disk.isUsb()) {
+//                builder.setOngoing(true);
+//            }
 
             if (disk.isAdoptable() || disk.isSd()) {
                 builder.setDeleteIntent(buildSnoozeIntent(vol.getFsUuid()));
