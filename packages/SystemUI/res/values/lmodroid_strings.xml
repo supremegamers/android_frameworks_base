@@ -109,7 +109,6 @@
     <string name="accessibility_dpad_right">Cursor right</string>
 
     <!-- Bluetooth dialog -->
-    <string name="turn_on_bluetooth">Use Bluetooth</string>
     <string name="bluetooth_is_off">Bluetooth is off</string>
     <string name="tap_a_device_to_connect">Tap a device to connect</string>
 
@@ -159,5 +158,14 @@
     <string name="navbar_editor_summary">Configure navigaton bar</string>
     <!-- SysUI Tuner: Adjust button width dialog title [CHAR LIMIT=60] -->
     <string name="adjust_button_width">Adjust button width</string>
+
+    <!-- QuickSettings: InternetDialog: Summary for how many devices are connected to the hotspot [CHAR LIMIT=NONE] -->
+    <plurals name="quick_settings_internet_hotspot_summary_num_devices">
+        <item quantity="one">%d device connected</item>
+        <item quantity="other">%d devices connected</item>
+    </plurals>
+
+    <!-- DataSwitch Tile -->
+    <string name="qs_data_switch_label">Switch data card</string>
 
 </resources>
