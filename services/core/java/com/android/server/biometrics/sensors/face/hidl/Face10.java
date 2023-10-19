@@ -421,13 +421,15 @@ public class Face10 implements IHwBinder.DeathRecipient, ServiceProvider {
         try {
             mDaemon = IBiometricsFace.getService();
         } catch (java.util.NoSuchElementException e) {
-            // Service doesn't exist or cannot be opened. Try to load software impl
-            mDaemon = FaceUnlockHalManager.getIBiometricsFace();
-            if (mDaemon == null) {
-                Slog.w(TAG, "NoSuchElementException", e);
-            }
+            // Service doesn't exist or cannot be opened.
+            Slog.w(TAG, "NoSuchElementException", e);
         } catch (RemoteException e) {
             Slog.e(TAG, "Failed to get face HAL", e);
+        }
+
+        if (mDaemon == null) {
+            Slog.i(TAG, "Loading software Face HAL");
+            mDaemon = FaceUnlockHalManager.getIBiometricsFace();
         }
 
         if (mDaemon == null) {

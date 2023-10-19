@@ -184,7 +184,8 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
     private boolean mUpdateRotation = false;
     // Only set while traversing the default display based on its content.
     // Affects the behavior of mirroring on secondary displays.
-    private boolean mObscureApplicationContentOnSecondaryDisplays = false;
+    private boolean mObscureApplicationContentOnSecondaryDisplaysDueToKeyguard = false;
+    private boolean mObscureApplicationContentOnSecondaryDisplaysDueToDream = false;
 
     private boolean mSustainedPerformanceModeEnabled = false;
     private boolean mSustainedPerformanceModeCurrent = false;
@@ -801,7 +802,8 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         mButtonBrightnessOverride = PowerManager.BRIGHTNESS_INVALID_FLOAT;
         mScreenBrightnessOverride = PowerManager.BRIGHTNESS_INVALID_FLOAT;
         mUserActivityTimeout = -1;
-        mObscureApplicationContentOnSecondaryDisplays = false;
+        mObscureApplicationContentOnSecondaryDisplaysDueToKeyguard = false;
+        mObscureApplicationContentOnSecondaryDisplaysDueToDream = false;
         mSustainedPerformanceModeCurrent = false;
         mWmService.mTransactionSequence++;
 
@@ -1019,9 +1021,11 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
                     defaultDc.getRotation(), t);
         }
 
+        defaultDc.applySurfaceChangesTransaction();
         final int count = mChildren.size();
         for (int j = 0; j < count; ++j) {
             final DisplayContent dc = mChildren.get(j);
+            if (dc == defaultDc) continue;
             dc.applySurfaceChangesTransaction();
         }
 
@@ -1093,12 +1097,16 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
                 // While a dream or keyguard is showing, obscure ordinary application content on
                 // secondary displays (by forcibly enabling mirroring unless there is other content
                 // we want to show) but still allow opaque keyguard dialogs to be shown.
-                if (w.isDreamWindow() || mWmService.mPolicy.isKeyguardShowing()) {
-                    mObscureApplicationContentOnSecondaryDisplays = true;
+                if (mWmService.mPolicy.isKeyguardShowing()) {
+                    mObscureApplicationContentOnSecondaryDisplaysDueToKeyguard = true;
+                }
+                if (w.isDreamWindow()) {
+                    mObscureApplicationContentOnSecondaryDisplaysDueToDream = true;
                 }
                 displayHasContent = true;
             } else if (displayContent != null &&
-                    (!mObscureApplicationContentOnSecondaryDisplays
+                    !mObscureApplicationContentOnSecondaryDisplaysDueToDream &&
+                    (!mObscureApplicationContentOnSecondaryDisplaysDueToKeyguard
                             || (obscured && type == TYPE_KEYGUARD_DIALOG))) {
                 // Allow full screen keyguard presentation dialogs to be seen.
                 displayHasContent = true;
@@ -2301,11 +2309,10 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
                     resumedOnDisplay[0] |= curResult;
                     return;
                 }
-                if (rootTask.getDisplayArea().isTopRootTask(rootTask)
-                        && topRunningActivity.isState(RESUMED)) {
-                    // Kick off any lingering app transitions form the MoveTaskToFront
-                    // operation, but only consider the top task and root-task on that
-                    // display.
+                if (topRunningActivity.isState(RESUMED)
+                        && topRunningActivity == rootTask.getDisplayArea().topRunningActivity()) {
+                    // Kick off any lingering app transitions form the MoveTaskToFront operation,
+                    // but only consider the top activity on that display.
                     rootTask.executeAppTransition(targetOptions);
                 } else {
                     resumedOnDisplay[0] |= topRunningActivity.makeActiveIfNeeded(target);
@@ -2589,6 +2596,10 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
     }
 
     SleepToken createSleepToken(String tag, int displayId) {
+        return createSleepToken(tag, displayId, false /* isSwappingDisplay */);
+    }
+
+    SleepToken createSleepToken(String tag, int displayId, boolean isSwappingDisplay) {
         final DisplayContent display = getDisplayContent(displayId);
         if (display == null) {
             throw new IllegalArgumentException("Invalid display: " + displayId);
@@ -2597,7 +2608,7 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         final int tokenKey = makeSleepTokenKey(tag, displayId);
         SleepToken token = mSleepTokens.get(tokenKey);
         if (token == null) {
-            token = new SleepToken(tag, displayId);
+            token = new SleepToken(tag, displayId, isSwappingDisplay);
             mSleepTokens.put(tokenKey, token);
             display.mAllSleepTokens.add(token);
             ProtoLog.d(WM_DEBUG_STATES, "Create sleep token: tag=%s, displayId=%d", tag, displayId);
@@ -3546,18 +3557,34 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         private final String mTag;
         private final long mAcquireTime;
         private final int mDisplayId;
+        private final boolean mIsSwappingDisplay;
         final int mHashKey;
 
-        SleepToken(String tag, int displayId) {
+        // The display could remain in sleep after the physical display swapped, adding a 1
+        // seconds display swap timeout to prevent activities staying in PAUSED state.
+        // Otherwise, the sleep token should be removed once display turns back on after swapped.
+        private static final long DISPLAY_SWAP_TIMEOUT = 1000;
+
+        SleepToken(String tag, int displayId, boolean isSwappingDisplay) {
             mTag = tag;
             mDisplayId = displayId;
             mAcquireTime = SystemClock.uptimeMillis();
+            mIsSwappingDisplay = isSwappingDisplay;
             mHashKey = makeSleepTokenKey(mTag, mDisplayId);
+        }
+
+        public boolean isDisplaySwapping() {
+            long now = SystemClock.uptimeMillis();
+            if (now - mAcquireTime > DISPLAY_SWAP_TIMEOUT) {
+                return false;
+            }
+            return mIsSwappingDisplay;
         }
 
         @Override
         public String toString() {
             return "{\"" + mTag + "\", display " + mDisplayId
+                    + (mIsSwappingDisplay ? " is swapping " : "")
                     + ", acquire at " + TimeUtils.formatUptime(mAcquireTime) + "}";
         }
 

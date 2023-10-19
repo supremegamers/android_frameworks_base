@@ -5564,6 +5564,39 @@ public final class Settings {
         public static final String VOLUME_KEY_CURSOR_CONTROL = "volume_key_cursor_control";
 
         /**
+         * Whether charging control should be enabled.
+         * The value is boolean (1 or 0).
+         * @hide
+         */
+        public static final String CHARGING_CONTROL_ENABLED = "charging_control_enabled";
+
+        /**
+         * Charging control mode, one of AUTO (1; default), CUSTOM (2), or LIMIT (3).
+         * @hide
+         */
+        public static final String CHARGING_CONTROL_MODE = "charging_control_mode";
+
+        /**
+         * Time when charging control is automatically activated in CUSTOM mode.
+         * The value is represented as seconds from midnight.
+         * @hide
+         */
+        public static final String CHARGING_CONTROL_START_TIME = "charging_control_start_time";
+
+        /**
+         * Target time when battery is fully charged in CUSTOM mode.
+         * The value is represented as seconds from midnight.
+         * @hide
+         */
+        public static final String CHARGING_CONTROL_TARGET_TIME = "charging_control_target_time";
+
+        /**
+         * Limit to stop charging.
+         * @hide
+         */
+        public static final String CHARGING_CONTROL_LIMIT = "charging_control_charging_limit";
+
+        /**
          * Whether the battery light should be enabled (if hardware supports it)
          * The value is boolean (1 or 0).
          * @hide
@@ -5912,8 +5945,8 @@ public final class Settings {
         /**
          * Status bar battery %
          * 0: Hide the battery percentage
-         * 1: Display the battery percentage inside the icon
-         * 2: Display the battery percentage next to the icon
+         * 1: Display the battery percentage next to the icon
+         * 2: Display the battery percentage inside the icon
          * @hide
          */
         public static final String STATUS_BAR_SHOW_BATTERY_PERCENT =
@@ -6184,21 +6217,6 @@ public final class Settings {
         public static final String SHOW_APP_VOLUME = "show_app_volume";
 
         /**
-         * Three Finger Gesture
-         * @hide
-         */
-        public static final String THREE_FINGER_GESTURE = "three_finger_gesture";
-
-        /**
-         * Whether allowing pocket service to register sensors and dispatch informations.
-         *   0 = disabled
-         *   1 = enabled
-         * @author Carlo Savignano
-         * @hide
-         */
-        public static final String POCKET_JUDGE = "pocket_judge";
-
-        /**
          * Whether to use the custom quick unlock screen control
          * @hide
          */
@@ -6217,15 +6235,9 @@ public final class Settings {
         public static final String QS_FOOTER_DATA_USAGE = "qs_footer_data_usage";
 
         /**
-         * Bring back old style mobile data indicators.
          * @hide
          */
-        public static final String USE_OLD_MOBILETYPE = "use_old_mobiletype";
-
-        /**
-         * @hide
-         */
-        public static final String TRANSISTENT_TASK_MODE = "transistent_task_mode";
+        public static final String TRANSIENT_TASK_MODE = "transient_task_mode";
 
         /**
          * @hide
@@ -6248,6 +6260,12 @@ public final class Settings {
          */
         public static final String[] LEGACY_RESTORE_SETTINGS = {
         };
+
+        /**
+         * Three Finger Gesture
+         * @hide
+         */
+        public static final String THREE_FINGER_GESTURE = "three_finger_gesture";
 
         /**
          * These are all public system settings
@@ -6361,8 +6379,7 @@ public final class Settings {
             PRIVATE_SETTINGS.add(DISPLAY_COLOR_MODE);
             PRIVATE_SETTINGS.add(DISPLAY_COLOR_MODE_VENDOR_HINT);
             PRIVATE_SETTINGS.add(DESKTOP_MODE);
-            PRIVATE_SETTINGS.add(POCKET_JUDGE);
-            PRIVATE_SETTINGS.add(TRANSISTENT_TASK_MODE);
+            PRIVATE_SETTINGS.add(TRANSIENT_TASK_MODE);
             PRIVATE_SETTINGS.add(PREVENT_POINTER_ACCELERATION);
             PRIVATE_SETTINGS.add(FORCE_MOUSE_AS_TOUCH);
         }
@@ -6379,7 +6396,7 @@ public final class Settings {
             CLONE_TO_MANAGED_PROFILE.add(SOUND_EFFECTS_ENABLED);
             CLONE_TO_MANAGED_PROFILE.add(TEXT_SHOW_PASSWORD);
             CLONE_TO_MANAGED_PROFILE.add(TIME_12_24);
-            CLONE_TO_MANAGED_PROFILE.add(TRANSISTENT_TASK_MODE);
+            CLONE_TO_MANAGED_PROFILE.add(TRANSIENT_TASK_MODE);
             CLONE_TO_MANAGED_PROFILE.add(FORCE_MOUSE_AS_TOUCH);
         }
 
@@ -8764,6 +8781,15 @@ public final class Settings {
                 "accessibility_display_inversion_enabled";
 
         /**
+         * Flag that specifies whether font size has been changed. The flag will
+         * be set when users change the scaled value of font size for the first time.
+         * @hide
+         */
+        @Readable
+        public static final String ACCESSIBILITY_FONT_SCALING_HAS_BEEN_CHANGED =
+                "accessibility_font_scaling_has_been_changed";
+
+        /**
          * Setting that specifies whether display color space adjustment is
          * enabled.
          *
@@ -9963,6 +9989,14 @@ public final class Settings {
         public static final String SCREENSAVER_COMPLICATIONS_ENABLED =
                 "screensaver_complications_enabled";
 
+        /**
+         * Whether home controls are enabled to be shown over the screensaver by the user.
+         *
+         * @hide
+         */
+        public static final String SCREENSAVER_HOME_CONTROLS_ENABLED =
+                "screensaver_home_controls_enabled";
+
 
         /**
          * Default, indicates that the user has not yet started the dock setup flow.
@@ -9996,12 +10030,28 @@ public final class Settings {
         public static final int DOCK_SETUP_PROMPTED = 3;
 
         /**
+         * Indicates that the user has started dock setup but never finished it.
+         * One of the possible states for {@link #DOCK_SETUP_STATE}.
+         *
+         * @hide
+         */
+        public static final int DOCK_SETUP_INCOMPLETE = 4;
+
+        /**
          * Indicates that the user has completed dock setup.
          * One of the possible states for {@link #DOCK_SETUP_STATE}.
          *
          * @hide
          */
         public static final int DOCK_SETUP_COMPLETED = 10;
+
+        /**
+         * Indicates that dock setup timed out before the user could complete it.
+         * One of the possible states for {@link #DOCK_SETUP_STATE}.
+         *
+         * @hide
+         */
+        public static final int DOCK_SETUP_TIMED_OUT = 11;
 
         /** @hide */
         @Retention(RetentionPolicy.SOURCE)
@@ -10010,7 +10060,9 @@ public final class Settings {
                 DOCK_SETUP_STARTED,
                 DOCK_SETUP_PAUSED,
                 DOCK_SETUP_PROMPTED,
-                DOCK_SETUP_COMPLETED
+                DOCK_SETUP_INCOMPLETE,
+                DOCK_SETUP_COMPLETED,
+                DOCK_SETUP_TIMED_OUT
         })
         public @interface DockSetupState {
         }
@@ -10279,7 +10331,7 @@ public final class Settings {
         /**
          * Indicates whether "seen" notifications should be suppressed from the lockscreen.
          * <p>
-         * Type: int (0 for false, 1 for true)
+         * Type: int (0 for unset, 1 for true, 2 for false)
          *
          * @hide
          */
@@ -10582,11 +10634,12 @@ public final class Settings {
                 "fingerprint_side_fps_auth_downtime";
 
         /**
-         * Whether or not a SFPS device is required to be interactive for auth to unlock the device.
+         * Whether or not a SFPS device is enabling the performant auth setting.
+         * The "_V2" suffix was added to re-introduce the default behavior for
+         * users. See b/265264294 fore more details.
          * @hide
          */
-        public static final String SFPS_REQUIRE_SCREEN_ON_TO_AUTH_ENABLED =
-                "sfps_require_screen_on_to_auth_enabled";
+        public static final String SFPS_PERFORMANT_AUTH_ENABLED = "sfps_performant_auth_enabled_v2";
 
         /**
          * Whether or not debugging is enabled.
@@ -10663,6 +10716,28 @@ public final class Settings {
          */
         public static final String ACTIVE_UNLOCK_ON_UNLOCK_INTENT_WHEN_BIOMETRIC_ENROLLED =
                 "active_unlock_on_unlock_intent_when_biometric_enrolled";
+
+        /**
+         * If active unlock triggers on unlock intents, then also request active unlock on
+         * these wake-up reasons. See {@link PowerManager.WakeReason} for value mappings.
+         * WakeReasons should be separated by a pipe. For example: "0|3" or "0". If this
+         * setting should be disabled, then this should be set to an empty string. A null value
+         * will use the system default value (WAKE_REASON_UNFOLD_DEVICE).
+         * @hide
+         */
+        public static final String ACTIVE_UNLOCK_WAKEUPS_CONSIDERED_UNLOCK_INTENTS =
+                "active_unlock_wakeups_considered_unlock_intents";
+
+        /**
+         * If active unlock triggers and succeeds on these wakeups, force dismiss keyguard on
+         * these wake reasons. See {@link PowerManager#WakeReason} for value mappings.
+         * WakeReasons should be separated by a pipe. For example: "0|3" or "0". If this
+         * setting should be disabled, then this should be set to an empty string. A null value
+         * will use the system default value (WAKE_REASON_UNFOLD_DEVICE).
+         * @hide
+         */
+        public static final String ACTIVE_UNLOCK_WAKEUPS_TO_FORCE_DISMISS_KEYGUARD =
+                "active_unlock_wakeups_to_force_dismiss_keyguard";
 
         /**
          * Whether the assist gesture should be enabled.
@@ -11692,58 +11767,13 @@ public final class Settings {
                 RING_HOME_BUTTON_BEHAVIOR_DO_NOTHING;
 
         /**
-         * Network traffic indicator location
-         * 0 = Disabled
-         * 1 = Statusbar
-         * 2 = Quick statusbar
+         * Our GameSpace can't write to device_config directly [GTS]
+         * Use this as intermediate to pass device_config property
+         * from our GameSpace to com.android.server.app.GameManagerService
+         * so we can set the device_config property from there.
          * @hide
          */
-        public static final String NETWORK_TRAFFIC_LOCATION = "network_traffic_location";
-
-        /**
-         * Network traffic indicator mode
-         * 0 = Display both up- and down-stream traffic
-         * 1 = Display up-stream traffic only
-         * 2 = Display down-stream traffic only
-         * @hide
-         */
-        public static final String NETWORK_TRAFFIC_MODE = "network_traffic_mode";
-
-        /**
-         * Whether or not to hide the network traffic indicator when there is no activity
-         * @hide
-         */
-        public static final String NETWORK_TRAFFIC_AUTOHIDE = "network_traffic_autohide";
-
-        /**
-         * Threshold below which network traffic would be hidden
-         * @hide
-         */
-        public static final String NETWORK_TRAFFIC_AUTOHIDE_THRESHOLD = "network_traffic_autohide_threshold";
-
-        /**
-         * Measurement unit preference for network traffic
-         * @hide
-         */
-        public static final String NETWORK_TRAFFIC_UNITS = "network_traffic_units";
-
-        /**
-         * Whether or not to show measurement units in the network traffic indiciator
-         * @hide
-         */
-        public static final String NETWORK_TRAFFIC_SHOW_UNITS = "network_traffic_show_units";
-
-        /**
-         * Specify refresh duration for network traffic
-         * @hide
-         */
-        public static final String NETWORK_TRAFFIC_REFRESH_INTERVAL = "network_traffic_refresh_interval";
-
-        /**
-         * Whether to hide arrows for network traffic
-         * @hide
-         */
-        public static final String NETWORK_TRAFFIC_HIDEARROW = "network_traffic_hidearrow";
+        public static final String GAME_OVERLAY = "game_overlay";
 
         /**
          * Keys we no longer back up under the current schema, but want to continue to
@@ -11832,21 +11862,46 @@ public final class Settings {
         public @interface DeviceStateRotationLockSetting {
         }
 
+        /** @hide */
+        public static final int DEVICE_STATE_ROTATION_KEY_UNKNOWN = -1;
+        /** @hide */
+        public static final int DEVICE_STATE_ROTATION_KEY_FOLDED = 0;
+        /** @hide */
+        public static final int DEVICE_STATE_ROTATION_KEY_HALF_FOLDED = 1;
+        /** @hide */
+        public static final int DEVICE_STATE_ROTATION_KEY_UNFOLDED = 2;
+
+        /**
+         * The different postures that can be used as keys with
+         * {@link #DEVICE_STATE_ROTATION_LOCK}.
+         * @hide
+         */
+        @IntDef(prefix = {"DEVICE_STATE_ROTATION_KEY_"}, value = {
+                DEVICE_STATE_ROTATION_KEY_UNKNOWN,
+                DEVICE_STATE_ROTATION_KEY_FOLDED,
+                DEVICE_STATE_ROTATION_KEY_HALF_FOLDED,
+                DEVICE_STATE_ROTATION_KEY_UNFOLDED,
+        })
+        @Retention(RetentionPolicy.SOURCE)
+        public @interface DeviceStateRotationLockKey {
+        }
+
         /**
          * Rotation lock setting keyed on device state.
          *
-         * This holds a serialized map using int keys that represent Device States and value of
+         * This holds a serialized map using int keys that represent postures in
+         * {@link DeviceStateRotationLockKey} and value of
          * {@link DeviceStateRotationLockSetting} representing the rotation lock setting for that
-         * device state.
+         * posture.
          *
          * Serialized as key0:value0:key1:value1:...:keyN:valueN.
          *
          * Example: "0:1:1:2:2:1"
          * This example represents a map of:
          * <ul>
-         *     <li>0 -> DEVICE_STATE_ROTATION_LOCK_LOCKED</li>
-         *     <li>1 -> DEVICE_STATE_ROTATION_LOCK_UNLOCKED</li>
-         *     <li>2 -> DEVICE_STATE_ROTATION_LOCK_IGNORED</li>
+         *     <li>DEVICE_STATE_ROTATION_KEY_FOLDED -> DEVICE_STATE_ROTATION_LOCK_LOCKED</li>
+         *     <li>DEVICE_STATE_ROTATION_KEY_HALF_FOLDED -> DEVICE_STATE_ROTATION_LOCK_UNLOCKED</li>
+         *     <li>DEVICE_STATE_ROTATION_KEY_UNFOLDED -> DEVICE_STATE_ROTATION_LOCK_IGNORED</li>
          * </ul>
          *
          * @hide
@@ -11910,6 +11965,13 @@ public final class Settings {
                 "extra_automatic_power_save_mode";
 
         /**
+         * Whether lockscreen weather is enabled.
+         *
+         * @hide
+         */
+        public static final String LOCK_SCREEN_WEATHER_ENABLED = "lockscreen_weather_enabled";
+
+        /**
          * Whether touch hovering is enabled on supported hardware
          * @hide
          */
@@ -11942,6 +12004,43 @@ public final class Settings {
          * @hide
          */
         public static final String KEYBOARD_BRIGHTNESS = "keyboard_brightness";
+
+        /**
+         * Network traffic indicator mode
+         * 0 = Don't show network traffic indicator
+         * 1 = Display up-stream traffic only
+         * 2 = Display down-stream traffic only
+         * 3 = Display both up- and down-stream traffic
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_MODE = "network_traffic_mode";
+
+        /**
+         * Network traffic indicator position
+         * 0 = Start side
+         * 1 = Center
+         * 2 = End side
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_POSITION = "network_traffic_position";
+
+        /**
+         * Whether or not to hide the network traffic indicator when there is no activity
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_AUTOHIDE = "network_traffic_autohide";
+
+        /**
+         * Measurement unit preference for network traffic
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_UNITS = "network_traffic_units";
+
+        /**
+         * Whether or not to show measurement units in the network traffic indiciator
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_SHOW_UNITS = "network_traffic_show_units";
 
         /**
          * Whether key swap is enabled on supported hardware

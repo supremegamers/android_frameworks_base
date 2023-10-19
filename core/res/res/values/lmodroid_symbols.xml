@@ -39,6 +39,12 @@
          user switches -->
     <java-symbol type="bool" name="config_cleanupUnusedFingerprints" />
 
+    <!-- Should we listen for fingerprints when the screen is off?  Devices
+         with a rear-mounted sensor want this, but certain devices have
+         the sensor embedded in the power key and listening all the time
+         causes a poor experience. -->
+    <java-symbol type="bool" name="config_fingerprintWakeAndUnlock" />
+
     <!-- Notification light mappings -->
     <java-symbol type="array" name="notification_light_package_mapping" />
     <!-- On-device lights (LED) capabilities -->
@@ -119,18 +125,6 @@
     <java-symbol type="bool" name="config_filterDisplayModes" />
     <java-symbol type="array" name="config_displayModeMappings" />
 
-    <!-- Pocket Lock -->
-    <java-symbol type="layout" name="pocket_lock_view" />
-
-    <!-- Pocket bridge -->
-    <java-symbol type="string" name="config_pocketBridgeSysfsInpocket" />
-    <java-symbol type="bool" name="config_pocketModeSupported" />
-    <java-symbol type="bool" name="config_pocketUseLightSensor" />
-
-    <!-- Pocket Service -->
-    <java-symbol type="string" name="config_pocketJudgeVendorSensorName" />
-    <java-symbol type="string" name="config_pocketJudgeVendorProximitySensorName" />
-
     <!-- App lock -->
     <java-symbol type="string" name="unlock_application" />
     <java-symbol type="array" name="config_appLockAllowedSystemApps" />
@@ -154,7 +148,44 @@
     <!-- Parallel space max count. -->
     <java-symbol type="integer" name="config_parallelSpaceMaxCount" />
 
-    <!-- Whether to use old mobile type icons as default -->
-    <java-symbol type="bool" name="config_useOldMobileIcons" />
+    <!-- Whether to use VPN Tethering -->
+    <java-symbol type="bool" name="config_enable_vpntethering" />
+
+    <!-- Default value for QS_TRANSPARENCY -->
+    <java-symbol type="integer" name="config_qs_transparency" />
+
+    <!-- Deprecated target SDK dialog -->
+    <java-symbol type="bool" name="config_disableDeprecatedTargetDialog" />
+
+    <!-- Status bar network traffic monitor -->
+    <java-symbol type="drawable" name="stat_sys_network_traffic_down" />
+    <java-symbol type="drawable" name="stat_sys_network_traffic_up" />
+    <java-symbol type="drawable" name="stat_sys_network_traffic_updown" />
+    <java-symbol type="dimen" name="net_traffic_single_text_size" />
+    <java-symbol type="dimen" name="net_traffic_multi_text_size" />
+    <java-symbol type="string" name="kilobitspersecond_short" />
+    <java-symbol type="string" name="megabitspersecond_short" />
+    <java-symbol type="string" name="kilobytespersecond_short" />
+    <java-symbol type="string" name="megabytespersecond_short" />
+
+    <!-- Health interface -->
+    <java-symbol type="bool" name="config_chargingControlEnabled" />
+    <java-symbol type="integer" name="config_defaultChargingControlMode" />
+    <java-symbol type="integer" name="config_defaultChargingControlStartTime" />
+    <java-symbol type="integer" name="config_defaultChargingControlTargetTime" />
+    <java-symbol type="integer" name="config_defaultChargingControlLimit" />
+    <java-symbol type="drawable" name="ic_charging_control" />
+    <java-symbol type="integer" name="config_chargingControlTimeMargin" />
+    <java-symbol type="integer" name="config_chargingControlBatteryRechargeMargin" />
+    <java-symbol type="string" name="charging_control_notification_channel" />
+    <java-symbol type="string" name="charging_control_notification_title" />
+    <java-symbol type="string" name="charging_control_notification_cancel_once" />
+    <java-symbol type="string" name="charging_control_notification_content_limit" />
+    <java-symbol type="string" name="charging_control_notification_content_limit_reached" />
+    <java-symbol type="string" name="charging_control_notification_content_target" />
+    <java-symbol type="string" name="charging_control_notification_content_target_reached" />
+
+    <!-- Configuration for detecting whether an oem fast charger is active -->
+    <java-symbol type="array" name="config_oemFastChargerStatusPaths" />
 
 </resources>

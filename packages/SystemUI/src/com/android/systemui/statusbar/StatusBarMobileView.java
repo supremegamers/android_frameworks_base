@@ -26,11 +26,9 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Rect;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
@@ -61,16 +59,12 @@ public class StatusBarMobileView extends BaseStatusBarFrameLayout implements Dar
     private View mInoutContainer;
     private ImageView mIn;
     private ImageView mOut;
-    private ImageView mMobile, mMobileType, mMobileRoaming;
-    private View mMobileSignalType;
-    private View mMobileRoamingSpace;
+    private ImageView mMobile, mMobileType, mMobileHd;
+    private View mMobileTypeSpace, mMobileHdSpace;
     @StatusBarIconView.VisibleState
     private int mVisibleState = STATE_HIDDEN;
     private DualToneHandler mDualToneHandler;
     private boolean mForceHidden;
-
-    private boolean mOldStyleType;
-    private ImageView mMobileTypeSmall;
 
     /**
      * Designated constructor
@@ -120,21 +114,35 @@ public class StatusBarMobileView extends BaseStatusBarFrameLayout implements Dar
         outRect.bottom += translationY;
     }
 
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        mMobileGroup.measure(widthMeasureSpec, heightMeasureSpec);
+        setMeasuredDimension(mMobileGroup.getMeasuredWidth(), mMobileGroup.getMeasuredHeight());
+    }
+
     private void init() {
         mDualToneHandler = new DualToneHandler(getContext());
         mMobileGroup = findViewById(R.id.mobile_group);
         mMobile = findViewById(R.id.mobile_signal);
         mMobileType = findViewById(R.id.mobile_type);
-        mMobileRoaming = findViewById(R.id.mobile_roaming);
-        mMobileRoamingSpace = findViewById(R.id.mobile_roaming_space);
+        mMobileHd = findViewById(R.id.mobile_hd);
+        mMobileHdSpace = findViewById(R.id.mobile_hd_space);
+        mMobileTypeSpace = findViewById(R.id.mobile_type_space);
         mIn = findViewById(R.id.mobile_in);
         mOut = findViewById(R.id.mobile_out);
         mInoutContainer = findViewById(R.id.inout_container);
-        mMobileSignalType = findViewById(R.id.mobile_signal_type);
-        mMobileTypeSmall = findViewById(R.id.mobile_type_small);
 
         mMobileDrawable = new SignalDrawable(getContext());
         mMobile.setImageDrawable(mMobileDrawable);
+
+        float signalSize = mContext.getResources().getDimensionPixelSize(
+                R.dimen.signal_icon_size);
+        float viewportSize = mContext.getResources().getDimensionPixelSize(
+                R.dimen.signal_icon_viewport_size);
+        LayoutParams lp = (LayoutParams) mMobileHd.getLayoutParams();
+        lp.height = Math.round((float) lp.height * (signalSize / viewportSize));
+        lp.width = Math.round((float) lp.width * (signalSize / viewportSize));
+        mMobileHd.setLayoutParams(lp);
 
         initDotView();
     }
@@ -176,39 +184,23 @@ public class StatusBarMobileView extends BaseStatusBarFrameLayout implements Dar
             mMobileGroup.setVisibility(View.VISIBLE);
         }
         mMobileDrawable.setLevel(mState.strengthId);
-        boolean showRoamingSpace = mOldStyleType ? true : false;
         if (mState.typeId > 0) {
-            if (mOldStyleType) {
-                showOldStyle(mState);
-            } else {
-                showNewStyle(mState);
-            }
+            mMobileType.setContentDescription(mState.typeContentDescription);
+            mMobileType.setImageResource(mState.typeId);
+            mMobileType.setScaleX(getContext().getResources().getConfiguration().fontScale);
+            mMobileType.setScaleY(getContext().getResources().getConfiguration().fontScale);
+            mMobileType.setVisibility(View.VISIBLE);
         } else {
-            hideIndicators();
+            mMobileType.setVisibility(View.GONE);
         }
-        if (mState.roaming) {
-            mMobileTypeSmall.setVisibility(View.GONE);
-            setMobileSignalWidth(true);
-        }
+        mMobileTypeSpace.setVisibility(mState.typeSpacerVisible ? View.VISIBLE : View.GONE);
         mMobile.setVisibility(mState.showTriangle ? View.VISIBLE : View.GONE);
-        mMobileRoaming.setVisibility(mState.roaming ? View.VISIBLE : View.GONE);
-        mMobileRoamingSpace.setVisibility(mState.roaming || showRoamingSpace ? View.VISIBLE : View.GONE);
+        mMobileHd.setVisibility(mState.showHd ? View.VISIBLE : View.GONE);
+        mMobileHdSpace.setVisibility(mState.showHd ? View.VISIBLE : View.GONE);
         mIn.setVisibility(mState.activityIn ? View.VISIBLE : View.GONE);
         mOut.setVisibility(mState.activityOut ? View.VISIBLE : View.GONE);
         mInoutContainer.setVisibility((mState.activityIn || mState.activityOut)
                 ? View.VISIBLE : View.GONE);
-    }
-
-    private void setMobileSignalWidth(boolean small) {
-        ViewGroup.LayoutParams p = mMobileSignalType.getLayoutParams();
-        if (small) {
-            p.width = mContext.getResources().getDimensionPixelSize(
-                        R.dimen.status_bar_mobile_signal_width);
-        } else {
-            p.width = mContext.getResources().getDimensionPixelSize(
-                    R.dimen.status_bar_mobile_signal_with_type_width);
-        }
-        mMobileSignalType.setLayoutParams(p);
     }
 
     private boolean updateState(MobileIconState state) {
@@ -223,34 +215,28 @@ public class StatusBarMobileView extends BaseStatusBarFrameLayout implements Dar
         if (mState.strengthId != state.strengthId) {
             mMobileDrawable.setLevel(state.strengthId);
         }
-        boolean showRoamingSpace = mOldStyleType ? true : false;
         if (mState.typeId != state.typeId) {
             needsLayout |= state.typeId == 0 || mState.typeId == 0;
             if (state.typeId != 0) {
-                if (mOldStyleType) {
-                    showOldStyle(state);
-                } else {
-                    showNewStyle(state);
-                }
+                mMobileType.setContentDescription(state.typeContentDescription);
+                mMobileType.setImageResource(state.typeId);
+                mMobileType.setScaleX(getContext().getResources().getConfiguration().fontScale);
+                mMobileType.setScaleY(getContext().getResources().getConfiguration().fontScale);
+                mMobileType.setVisibility(View.VISIBLE);
             } else {
-                hideIndicators();
+                mMobileType.setVisibility(View.GONE);
             }
         }
-
-        if (state.roaming) {
-            mMobileTypeSmall.setVisibility(View.GONE);
-            setMobileSignalWidth(true);
-        }
-
+        mMobileTypeSpace.setVisibility(state.typeSpacerVisible ? View.VISIBLE : View.GONE);
         mMobile.setVisibility(state.showTriangle ? View.VISIBLE : View.GONE);
-        mMobileRoaming.setVisibility(state.roaming ? View.VISIBLE : View.GONE);
-        mMobileRoamingSpace.setVisibility(showRoamingSpace || state.roaming ? View.VISIBLE : View.GONE);
+        mMobileHd.setVisibility(state.showHd ? View.VISIBLE : View.GONE);
+        mMobileHdSpace.setVisibility(state.showHd ? View.VISIBLE : View.GONE);
         mIn.setVisibility(state.activityIn ? View.VISIBLE : View.GONE);
         mOut.setVisibility(state.activityOut ? View.VISIBLE : View.GONE);
         mInoutContainer.setVisibility((state.activityIn || state.activityOut)
                 ? View.VISIBLE : View.GONE);
 
-        needsLayout |= state.roaming != mState.roaming
+        needsLayout |= state.showHd != mState.showHd
                 || state.activityIn != mState.activityIn
                 || state.activityOut != mState.activityOut
                 || state.showTriangle != mState.showTriangle;
@@ -268,8 +254,7 @@ public class StatusBarMobileView extends BaseStatusBarFrameLayout implements Dar
         mIn.setImageTintList(color);
         mOut.setImageTintList(color);
         mMobileType.setImageTintList(color);
-        mMobileTypeSmall.setImageTintList(color);
-        mMobileRoaming.setImageTintList(color);
+        mMobileHd.setImageTintList(color);
         mDotView.setDecorColor(tint);
         mDotView.setIconColor(tint, false);
     }
@@ -290,8 +275,7 @@ public class StatusBarMobileView extends BaseStatusBarFrameLayout implements Dar
         mIn.setImageTintList(list);
         mOut.setImageTintList(list);
         mMobileType.setImageTintList(list);
-        mMobileTypeSmall.setImageTintList(list);
-        mMobileRoaming.setImageTintList(list);
+        mMobileHd.setImageTintList(list);
         mDotView.setDecorColor(color);
     }
 
@@ -360,66 +344,5 @@ public class StatusBarMobileView extends BaseStatusBarFrameLayout implements Dar
     @Override
     public String toString() {
         return "StatusBarMobileView(slot=" + mSlot + " state=" + mState + ")";
-    }
-
-    public void updateDisplayType(boolean oldStyleType) {
-        boolean needsLayout = false;
-        boolean showRoamingSpace = oldStyleType ? true : false;
-
-        if (mOldStyleType != oldStyleType) {
-            if (mState.typeId != 0) {
-                if (oldStyleType) {
-                    showOldStyle(mState);
-                } else {
-                    showNewStyle(mState);
-                }
-            } else {
-                hideIndicators();
-            }
-        }
-        if (mState.roaming) {
-            mMobileTypeSmall.setVisibility(View.GONE);
-            setMobileSignalWidth(true);
-        }
-        mMobileRoaming.setVisibility(mState.roaming ? View.VISIBLE : View.GONE);
-        mMobileRoamingSpace.setVisibility(showRoamingSpace || mState.roaming ? View.VISIBLE : View.GONE);
-        mIn.setVisibility(mState.activityIn ? View.VISIBLE : View.GONE);
-        mOut.setVisibility(mState.activityOut ? View.VISIBLE : View.GONE);
-        mInoutContainer.setVisibility((mState.activityIn || mState.activityOut)
-                ? View.VISIBLE : View.GONE);
-
-        needsLayout = mOldStyleType != oldStyleType;
-        mOldStyleType = oldStyleType;
-
-        if (needsLayout) {
-            requestLayout();
-        }
-    }
-
-    private void showOldStyle(MobileIconState state) {
-        mMobileType.setVisibility(View.GONE);
-        mMobileTypeSmall.setContentDescription(state.typeContentDescription);
-        mMobileTypeSmall.setImageResource(state.typeId);
-        mMobileTypeSmall.setVisibility(View.VISIBLE);
-        setMobileSignalWidth(false);
-    }
-
-    private void showNewStyle(MobileIconState state) {
-        mMobileType.setVisibility(View.VISIBLE);
-        mMobileType.setContentDescription(state.typeContentDescription);
-        mMobileType.setImageResource(state.typeId);
-        mMobileTypeSmall.setVisibility(View.GONE);
-        setMobileSignalWidth(true);
-    }
-
-    private void showRoaming() {
-        mMobileTypeSmall.setVisibility(View.GONE);
-        setMobileSignalWidth(true);
-    }
-
-    private void hideIndicators() {
-        mMobileType.setVisibility(View.GONE);
-        mMobileTypeSmall.setVisibility(View.GONE);
-        setMobileSignalWidth(true);
     }
 }

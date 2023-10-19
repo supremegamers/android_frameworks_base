@@ -699,6 +699,8 @@ class ActivityClientController extends IActivityClientController.Stub {
             synchronized (mGlobalLock) {
                 final ActivityRecord r = ActivityRecord.isInRootTaskLocked(token);
                 if (r != null) {
+                    EventLogTags.writeWmSetRequestedOrientation(requestedOrientation,
+                            r.shortComponentName);
                     r.setRequestedOrientation(requestedOrientation);
                 }
             }
@@ -712,7 +714,8 @@ class ActivityClientController extends IActivityClientController.Stub {
         synchronized (mGlobalLock) {
             final ActivityRecord r = ActivityRecord.isInRootTaskLocked(token);
             return r != null
-                    ? r.getRequestedOrientation() : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+                    ? r.getOverrideOrientation()
+                    : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
         }
     }
 
@@ -1455,7 +1458,7 @@ class ActivityClientController extends IActivityClientController.Stub {
     private int shouldFinishTaskOnBackPressed() {
         if (mShouldFinishTaskSettingCache == null) {
             mShouldFinishTaskSettingCache = Settings.System.getInt(mContext.getContentResolver(),
-                                                Settings.System.TRANSISTENT_TASK_MODE, 0);
+                                                Settings.System.TRANSIENT_TASK_MODE, 0);
         }
         return mShouldFinishTaskSettingCache;
     }

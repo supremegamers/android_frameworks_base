@@ -134,7 +134,7 @@ public interface StatusBarManagerInternal {
     void onSystemBarAttributesChanged(int displayId, @Appearance int appearance,
             AppearanceRegion[] appearanceRegions, boolean navbarColorManagedByIme,
             @Behavior int behavior, InsetsVisibilities requestedVisibilities, String packageName,
-            LetterboxDetails[] letterboxDetails);
+            LetterboxDetails[] letterboxDetails, boolean needsMenu);
 
     /** @see com.android.internal.statusbar.IStatusBar#showTransient */
     void showTransient(int displayId, @InternalInsetsType int[] types,
@@ -191,4 +191,12 @@ public interface StatusBarManagerInternal {
      * @see com.android.internal.statusbar.IStatusBar#enterStageSplitFromRunningApp
      */
     void enterStageSplitFromRunningApp(boolean leftOrTop);
+
+    /**
+     * Shows the media output switcher dialog.
+     *
+     * @param packageName of the session for which the output switcher is shown.
+     * @see com.android.internal.statusbar.IStatusBar#showMediaOutputSwitcher
+     */
+    void showMediaOutputSwitcher(String packageName);
 }

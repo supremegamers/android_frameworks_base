@@ -189,6 +189,14 @@ public interface WindowManagerPolicy extends WindowManagerPolicyConstants {
         String getOwningPackage();
 
         /**
+         * Return whether this window needs the menu key shown.  Must be called
+         * with window lock held, because it may need to traverse down through
+         * window list to determine the result.
+         * @param bottom The bottom-most window to consider when determining this.
+         */
+        public boolean getNeedsMenuLw(WindowState bottom);
+
+        /**
          * Retrieve the type of the top-level window.
          *
          * @return the base type of the parent window if attached or its own type otherwise
@@ -830,8 +838,10 @@ public interface WindowManagerPolicy extends WindowManagerPolicyConstants {
 
     /**
      * Called when the display has turned off.
+     * @param displayId The display to apply to.
+     * @param isSwappingDisplay Whether the display is swapping to another physical display.
      */
-    public void screenTurnedOff(int displayId);
+    void screenTurnedOff(int displayId, boolean isSwappingDisplay);
 
     public interface ScreenOnListener {
         void onScreenOn();

@@ -33,6 +33,8 @@ import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.os.Process.SYSTEM_UID;
+import static android.view.WindowManager.LayoutParams.FIRST_APPLICATION_WINDOW;
+import static android.view.WindowManager.LayoutParams.LAST_APPLICATION_WINDOW;
 
 import static com.android.internal.protolog.ProtoLogGroup.WM_DEBUG_TASKS;
 import static com.android.server.wm.ActivityTaskManagerDebugConfig.DEBUG_RECENTS;
@@ -216,13 +218,23 @@ class RecentTasks {
             int y = (int) ev.getY();
             mService.mH.post(PooledLambda.obtainRunnable((nonArg) -> {
                 synchronized (mService.mGlobalLock) {
-                    // Unfreeze the task list once we touch down in a task
                     final RootWindowContainer rac = mService.mRootWindowContainer;
                     final DisplayContent dc = rac.getDisplayContent(displayId).mDisplayContent;
-                    if (dc.pointWithinAppWindow(x, y)) {
-                        final Task stack = mService.getTopDisplayFocusedRootTask();
-                        final Task topTask = stack != null ? stack.getTopMostTask() : null;
-                        resetFreezeTaskListReordering(topTask);
+                    final WindowState win = dc.getTouchableWinAtPointLocked((float) x, (float) y);
+                    if (win == null) {
+                        return;
+                    }
+                    // Unfreeze the task list once we touch down in a task
+                    final boolean isAppWindowTouch = FIRST_APPLICATION_WINDOW <= win.mAttrs.type
+                            && win.mAttrs.type <= LAST_APPLICATION_WINDOW;
+                    if (isAppWindowTouch) {
+                        // If we quickswitch while having gesture pill disabled, navbar height
+                        // is 0dp, which means the quickswitch start touch is inside app window
+                        // as well. To solve this, we defer resetting the freeze 500ms into the
+                        // future and if Launcher3 sends a freeze notice again, this app touch
+                        // effectively gets ignored when removeCallbacks() removes this runnable.
+                        mService.mH.removeCallbacks(mResetFreezeTaskListOnTimeoutRunnable);
+                        mService.mH.postDelayed(mResetFreezeTaskListOnTimeoutRunnable, 500);
                     }
                 }
             }, null).recycleOnUse());

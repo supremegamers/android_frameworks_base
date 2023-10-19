@@ -18,6 +18,7 @@ package com.android.systemui.navigationbar.buttons;
 
 import static android.view.Display.INVALID_DISPLAY;
 import static android.view.KeyEvent.KEYCODE_UNKNOWN;
+import static android.view.WindowManagerPolicyConstants.NAV_BAR_MODE_3BUTTON;
 import static android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK;
 import static android.view.accessibility.AccessibilityNodeInfo.ACTION_LONG_CLICK;
 
@@ -28,11 +29,9 @@ import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.Icon;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.metrics.LogMaker;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.AttributeSet;
@@ -58,14 +57,16 @@ import com.android.internal.logging.UiEventLoggerImpl;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.systemui.Dependency;
 import com.android.systemui.R;
-import com.android.systemui.recents.OverviewProxyService;
+import com.android.systemui.navigationbar.NavigationModeController;
 import com.android.systemui.shared.system.QuickStepContract;
 
-public class KeyButtonView extends ImageView implements ButtonInterface {
+public class KeyButtonView extends ImageView implements ButtonInterface, DragDropSurfaceCallback,
+        NavigationModeController.ModeChangedListener {
     private static final String TAG = KeyButtonView.class.getSimpleName();
     private static final int CURSOR_REPEAT_FLAGS = KeyEvent.FLAG_SOFT_KEYBOARD
             | KeyEvent.FLAG_KEEP_TOUCH_MODE;
 
+    private int mNavBarMode = NAV_BAR_MODE_3BUTTON;
     private final boolean mPlaySounds;
     private final UiEventLogger mUiEventLogger;
     private int mContentDescriptionRes;
@@ -79,12 +80,12 @@ public class KeyButtonView extends ImageView implements ButtonInterface {
     @VisibleForTesting boolean mLongClicked;
     private OnClickListener mOnClickListener;
     private final KeyButtonRipple mRipple;
-    private final OverviewProxyService mOverviewProxyService;
     private final MetricsLogger mMetricsLogger = Dependency.get(MetricsLogger.class);
     private final InputManager mInputManager;
     private final Paint mOvalBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private float mDarkIntensity;
     private boolean mHasOvalBg = false;
+    private DragDropSurfaceCallback mCallback;
 
     @VisibleForTesting
     public enum NavBarButtonEvent implements UiEventLogger.UiEventEnum {
@@ -180,11 +181,27 @@ public class KeyButtonView extends ImageView implements ButtonInterface {
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
 
         mRipple = new KeyButtonRipple(context, this, R.dimen.key_button_ripple_max_width);
-        mOverviewProxyService = Dependency.get(OverviewProxyService.class);
         mInputManager = manager;
         setBackground(mRipple);
         setWillNotDraw(false);
         forceHasOverlappingRendering(false);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        mNavBarMode = Dependency.get(NavigationModeController.class).addListener(this);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        Dependency.get(NavigationModeController.class).removeListener(this);
+        super.onDetachedFromWindow();
+    }
+
+    @Override
+    public void onNavigationModeChanged(int mode) {
+        mNavBarMode = mode;
     }
 
     @Override
@@ -200,20 +217,6 @@ public class KeyButtonView extends ImageView implements ButtonInterface {
     public void setOnClickListener(OnClickListener onClickListener) {
         super.setOnClickListener(onClickListener);
         mOnClickListener = onClickListener;
-    }
-
-    public void loadAsync(Icon icon) {
-        new AsyncTask<Icon, Void, Drawable>() {
-            @Override
-            protected Drawable doInBackground(Icon... params) {
-                return params[0].loadDrawable(mContext);
-            }
-
-            @Override
-            protected void onPostExecute(Drawable drawable) {
-                setImageDrawable(drawable);
-            }
-        }.execute(icon);
     }
 
     @Override
@@ -264,7 +267,7 @@ public class KeyButtonView extends ImageView implements ButtonInterface {
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        final boolean showSwipeUI = mOverviewProxyService.shouldShowSwipeUpUI();
+        final boolean showSwipeUI = !QuickStepContract.isLegacyMode(mNavBarMode);
         final int action = ev.getAction();
         int x, y;
         if (action == MotionEvent.ACTION_DOWN) {
@@ -366,8 +369,7 @@ public class KeyButtonView extends ImageView implements ButtonInterface {
         if (mHasOvalBg) {
             mOvalBgPaint.setColor(keyButtonDrawable.getDrawableBackgroundColor());
         }
-        mRipple.setType(keyButtonDrawable.hasOvalBg() ? KeyButtonRipple.Type.OVAL
-                : KeyButtonRipple.Type.ROUNDED_RECT);
+        mRipple.setType(mHasOvalBg ? KeyButtonRipple.Type.OVAL : KeyButtonRipple.Type.ROUNDED_RECT);
     }
 
     public void playSoundEffect(int soundConstant) {
@@ -491,5 +493,19 @@ public class KeyButtonView extends ImageView implements ButtonInterface {
     @Override
     public void setVertical(boolean vertical) {
         mIsVertical = vertical;
+    }
+
+    @Override
+    public void setForceDisableOverview(boolean forceDisableOverview) {
+        if (mCallback == null) {
+            Log.e("KeyButtonView", "mCallback == null");
+            return;
+        }
+        mCallback.setForceDisableOverview(forceDisableOverview);
+    }
+
+    @Override
+    public void setForceDisableOverviewCallback(DragDropSurfaceCallback forceDisableOverviewCallback) {
+        mCallback = forceDisableOverviewCallback;
     }
 }

@@ -75,6 +75,7 @@ import com.android.systemui.dump.DumpManager;
 import com.android.systemui.flags.FeatureFlags;
 import com.android.systemui.flags.Flags;
 import com.android.systemui.keyguard.ScreenLifecycle;
+import com.android.systemui.keyguard.domain.interactor.AlternateBouncerInteractor;
 import com.android.systemui.keyguard.domain.interactor.PrimaryBouncerInteractor;
 import com.android.systemui.plugins.FalsingManager;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
@@ -89,6 +90,7 @@ import com.android.systemui.statusbar.policy.ConfigurationController;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.util.concurrency.DelayableExecutor;
 import com.android.systemui.util.concurrency.Execution;
+import com.android.systemui.util.settings.SecureSettings;
 import com.android.systemui.util.time.SystemClock;
 
 import java.io.PrintWriter;
@@ -152,6 +154,8 @@ public class UdfpsController implements DozeReceiver, Dumpable {
     @NonNull private final ActivityLaunchAnimator mActivityLaunchAnimator;
     @NonNull private final PrimaryBouncerInteractor mPrimaryBouncerInteractor;
     @Nullable private final TouchProcessor mTouchProcessor;
+    @NonNull private final AlternateBouncerInteractor mAlternateBouncerInteractor;
+    @NonNull private final SecureSettings mSecureSettings;
 
     // Currently the UdfpsController supports a single UDFPS sensor. If devices have multiple
     // sensors, this, in addition to a lot of the code here, will be updated.
@@ -226,6 +230,10 @@ public class UdfpsController implements DozeReceiver, Dumpable {
     @Override
     public void dump(@NonNull PrintWriter pw, @NonNull String[] args) {
         pw.println("mSensorProps=(" + mSensorProps + ")");
+        pw.println("Using new touch detection framework: " + mFeatureFlags.isEnabled(
+                Flags.UDFPS_NEW_TOUCH_DETECTION));
+        pw.println("Using ellipse touch detection: " + mFeatureFlags.isEnabled(
+                Flags.UDFPS_ELLIPSE_DETECTION));
     }
 
     public class UdfpsOverlayController extends IUdfpsOverlayController.Stub {
@@ -238,12 +246,12 @@ public class UdfpsController implements DozeReceiver, Dumpable {
                             mShadeExpansionStateManager, mKeyguardViewManager,
                             mKeyguardUpdateMonitor, mDialogManager, mDumpManager,
                             mLockscreenShadeTransitionController, mConfigurationController,
-                            mSystemClock, mKeyguardStateController,
+                            mKeyguardStateController,
                             mUnlockedScreenOffAnimationController,
-                            mUdfpsDisplayMode, requestId, reason, callback,
+                            mUdfpsDisplayMode, mSecureSettings, requestId, reason, callback,
                             (view, event, fromUdfpsView) -> onTouch(requestId, event,
                                     fromUdfpsView), mActivityLaunchAnimator, mFeatureFlags,
-                            mPrimaryBouncerInteractor)));
+                            mPrimaryBouncerInteractor, mAlternateBouncerInteractor)));
         }
 
         @Override
@@ -334,13 +342,13 @@ public class UdfpsController implements DozeReceiver, Dumpable {
         if (!mOverlayParams.equals(overlayParams)) {
             mOverlayParams = overlayParams;
 
-            final boolean wasShowingAltAuth = mKeyguardViewManager.isShowingAlternateBouncer();
+            final boolean wasShowingAlternateBouncer = mAlternateBouncerInteractor.isVisibleState();
 
             // When the bounds change it's always necessary to re-create the overlay's window with
             // new LayoutParams. If the overlay needs to be shown, this will re-create and show the
             // overlay with the updated LayoutParams. Otherwise, the overlay will remain hidden.
             redrawOverlay();
-            if (wasShowingAltAuth) {
+            if (wasShowingAlternateBouncer) {
                 mKeyguardViewManager.showBouncer(true);
             }
         }
@@ -548,9 +556,6 @@ public class UdfpsController implements DozeReceiver, Dumpable {
         final UdfpsView udfpsView = mOverlay.getOverlayView();
         boolean handled = false;
         switch (event.getActionMasked()) {
-            case MotionEvent.ACTION_OUTSIDE:
-                udfpsView.onTouchOutsideView();
-                return true;
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_HOVER_ENTER:
                 Trace.beginSection("UdfpsController.onTouch.ACTION_DOWN");
@@ -573,7 +578,17 @@ public class UdfpsController implements DozeReceiver, Dumpable {
                     // We need to persist its ID to track it during ACTION_MOVE that could include
                     // data for many other pointers because of multi-touch support.
                     mActivePointerId = event.getPointerId(0);
+                    final int idx = mActivePointerId == -1
+                            ? event.getPointerId(0)
+                            : event.findPointerIndex(mActivePointerId);
+                    // Map the touch to portrait mode if the device is in landscape mode.
+                    final Point scaledTouch = getTouchInNativeCoordinates(event, idx);
                     mVelocityTracker.addMovement(event);
+                    // Scale the coordinates to native resolution.
+                    final float scale = mOverlayParams.getScaleFactor();
+                    float scaledMinor = event.getTouchMinor(idx) / scale;
+                    float scaledMajor = event.getTouchMajor(idx) / scale;
+                    onFingerDown(requestId, scaledTouch.x, scaledTouch.y, scaledMinor, scaledMajor);
                     handled = true;
                     mAcquiredReceived = false;
                 }
@@ -724,7 +739,9 @@ public class UdfpsController implements DozeReceiver, Dumpable {
             @NonNull Optional<Provider<AlternateUdfpsTouchProvider>> alternateTouchProvider,
             @NonNull @BiometricsBackground Executor biometricsExecutor,
             @NonNull PrimaryBouncerInteractor primaryBouncerInteractor,
-            @NonNull SinglePointerTouchProcessor singlePointerTouchProcessor) {
+            @NonNull SinglePointerTouchProcessor singlePointerTouchProcessor,
+            @NonNull AlternateBouncerInteractor alternateBouncerInteractor,
+            @NonNull SecureSettings secureSettings) {
         mContext = context;
         mExecution = execution;
         mVibrator = vibrator;
@@ -764,6 +781,8 @@ public class UdfpsController implements DozeReceiver, Dumpable {
 
         mBiometricExecutor = biometricsExecutor;
         mPrimaryBouncerInteractor = primaryBouncerInteractor;
+        mAlternateBouncerInteractor = alternateBouncerInteractor;
+        mSecureSettings = secureSettings;
 
         mTouchProcessor = mFeatureFlags.isEnabled(Flags.UDFPS_NEW_TOUCH_DETECTION)
                 ? singlePointerTouchProcessor : null;
@@ -860,9 +879,7 @@ public class UdfpsController implements DozeReceiver, Dumpable {
                 onFingerUp(mOverlay.getRequestId(), oldView);
             }
             final boolean removed = mOverlay.hide();
-            if (mKeyguardViewManager.isShowingAlternateBouncer()) {
-                mKeyguardViewManager.hideAlternateBouncer(true);
-            }
+            mKeyguardViewManager.hideAlternateBouncer(true);
             Log.v(TAG, "hideUdfpsOverlay | removing window: " + removed);
         } else {
             Log.v(TAG, "hideUdfpsOverlay | the overlay is already hidden");
@@ -993,7 +1010,7 @@ public class UdfpsController implements DozeReceiver, Dumpable {
         return brightness;
     }
 
-    private void updateViewDimAmount(boolean pressed) {
+    private void updateViewDimAmount(UdfpsControllerOverlay overlay, boolean pressed) {
         if (mFrameworkDimming) {
             if (pressed) {
                 int curBrightness = getBrightness();
@@ -1011,10 +1028,10 @@ public class UdfpsController implements DozeReceiver, Dumpable {
                             mBrightnessAlphaArray[i][1], mBrightnessAlphaArray[i-1][1]);
                 }
                 // Call the function in UdfpsOverlayController with dimAmount
-                mOverlay.updateDimAmount(dimAmount / 255.0f);
+                overlay.updateDimAmount(dimAmount / 255.0f);
             } else {
                 // Call the function in UdfpsOverlayController with dimAmount
-                mOverlay.updateDimAmount(0.0f);
+                overlay.updateDimAmount(0.0f);
             }
         }
     }
@@ -1074,7 +1091,7 @@ public class UdfpsController implements DozeReceiver, Dumpable {
             return;
         }
 
-        updateViewDimAmount(true);
+        updateViewDimAmount(mOverlay, true);
 
         if (!mOverlay.matchesRequestId(requestId)) {
             Log.w(TAG, "Mismatched fingerDown: " + requestId
@@ -1200,15 +1217,12 @@ public class UdfpsController implements DozeReceiver, Dumpable {
         final int delay = mContext.getResources().getInteger(
                 R.integer.config_udfpsDimmingDisableDelay);
         if (delay > 0) {
+            UdfpsControllerOverlay overlay = mOverlay;
             mFgExecutor.executeDelayed(() -> {
-                // A race condition exists where the overlay is destroyed before the the dim amount is updated.
-                // This check ensures that the overlay is still valid.
-                if (mOverlay != null && mOverlay.matchesRequestId(requestId)) {
-                    updateViewDimAmount(false);
-                }
+                updateViewDimAmount(overlay, false);
             }, delay);
         } else {
-            updateViewDimAmount(false);
+            updateViewDimAmount(mOverlay, false);
         }
     }
 

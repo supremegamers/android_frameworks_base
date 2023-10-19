@@ -22,6 +22,7 @@ import android.telephony.ServiceState
 import android.telephony.SignalStrength
 import android.telephony.TelephonyDisplayInfo
 import android.telephony.TelephonyManager
+import android.telephony.ims.stub.ImsRegistrationImplBase.REGISTRATION_TECH_NONE
 import com.android.internal.annotations.VisibleForTesting
 import com.android.settingslib.SignalIcon.MobileIconGroup
 import com.android.settingslib.Utils
@@ -47,8 +48,8 @@ internal class MobileState(
     // Tracks the on/off state of the defaultDataSubscription
     @JvmField var defaultDataOff: Boolean = false,
     @JvmField var imsRegistered: Boolean = false,
-    @JvmField var voiceCapable: Boolean = false,
-    @JvmField var videoCapable: Boolean = false,
+    @JvmField var imsRegistrationTech: Int = REGISTRATION_TECH_NONE,
+    @JvmField var imsVoiceCapable: Boolean = false
 ) : ConnectivityState() {
 
     @JvmField var telephonyDisplayInfo = TelephonyDisplayInfo(TelephonyManager.NETWORK_TYPE_UNKNOWN,
@@ -98,9 +99,9 @@ internal class MobileState(
         roaming = o.roaming
         dataState = o.dataState
         defaultDataOff = o.defaultDataOff
-        imsRegistered = o.imsRegistered;
-        voiceCapable = o.voiceCapable;
-        videoCapable = o.videoCapable;
+        imsRegistered = o.imsRegistered
+        imsRegistrationTech = o.imsRegistrationTech
+        imsVoiceCapable = o.imsVoiceCapable
 
         telephonyDisplayInfo = o.telephonyDisplayInfo
         serviceState = o.serviceState
@@ -155,10 +156,6 @@ internal class MobileState(
         return networkTypeResIdCache.get(icon, carrierId, context)
     }
 
-    fun getDataNetworkType(): Int {
-        return serviceState?.getDataNetworkType() ?: 0
-    }
-
     fun setFromMobileStatus(mobileStatus: MobileStatus) {
         activityIn = mobileStatus.activityIn
         activityOut = mobileStatus.activityOut
@@ -187,8 +184,8 @@ internal class MobileState(
         builder.append("dataState=$dataState,")
         builder.append("defaultDataOff=$defaultDataOff,")
         builder.append("imsRegistered=$imsRegistered,")
-        builder.append("voiceCapable=$voiceCapable,")
-        builder.append("videoCapable=$videoCapable,")
+        builder.append("imsRegistrationTech=$imsRegistrationTech,")
+        builder.append("imsVoiceCapable=$imsVoiceCapable,")
 
         // Computed properties
         builder.append("showQuickSettingsRatIcon=${showQuickSettingsRatIcon()},")
@@ -216,6 +213,9 @@ internal class MobileState(
             "userSetup",
             "dataState",
             "defaultDataOff",
+            "imsRegistered",
+            "imsRegistrationTech",
+            "imsVoiceCapable",
             "showQuickSettingsRatIcon",
             "voiceServiceState",
             "isInService",
@@ -241,6 +241,9 @@ internal class MobileState(
                 userSetup,
                 dataState,
                 defaultDataOff,
+                imsRegistered,
+                imsRegistrationTech,
+                imsVoiceCapable,
                 showQuickSettingsRatIcon(),
                 getVoiceServiceState(),
                 isInService(),
@@ -273,8 +276,8 @@ internal class MobileState(
         if (dataState != other.dataState) return false
         if (defaultDataOff != other.defaultDataOff) return false
         if (imsRegistered != other.imsRegistered) return false
-        if (voiceCapable != other.voiceCapable) return false
-        if (videoCapable != other.videoCapable) return false
+        if (imsRegistrationTech != other.imsRegistrationTech) return false
+        if (imsVoiceCapable != other.imsVoiceCapable) return false
         if (telephonyDisplayInfo != other.telephonyDisplayInfo) return false
         if (serviceState != other.serviceState) return false
         if (signalStrength != other.signalStrength) return false
@@ -297,6 +300,9 @@ internal class MobileState(
         result = 31 * result + roaming.hashCode()
         result = 31 * result + dataState
         result = 31 * result + defaultDataOff.hashCode()
+        result = 31 * result + imsRegistered.hashCode()
+        result = 31 * result + imsRegistrationTech.hashCode()
+        result = 31 * result + imsVoiceCapable.hashCode()
         result = 31 * result + telephonyDisplayInfo.hashCode()
         result = 31 * result + (serviceState?.hashCode() ?: 0)
         result = 31 * result + (signalStrength?.hashCode() ?: 0)

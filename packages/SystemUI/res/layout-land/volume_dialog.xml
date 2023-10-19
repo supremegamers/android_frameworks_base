@@ -25,7 +25,7 @@
     android:background="@android:color/transparent"
     android:theme="@style/volume_dialog_theme">
 
-    <LinearLayout
+    <com.android.systemui.animation.view.LaunchableLinearLayout
         android:id="@+id/volume_dialog"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -151,6 +151,18 @@
                         android:padding="10dp"
                         android:rotation="90" />
                 </FrameLayout>
+                <FrameLayout
+                    android:id="@+id/rounded_border_bottom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/volume_background_bottom"
+                    android:paddingLeft="@dimen/volume_dialog_ringer_rows_padding"
+                    android:paddingRight="@dimen/volume_dialog_ringer_rows_padding">
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="32dp"
+                        android:background="@drawable/ripple_drawable_20dp"/>
+                </FrameLayout>
             </LinearLayout>
 
         </LinearLayout>
@@ -175,7 +187,7 @@
                 android:layout_gravity="center"
                 android:soundEffectsEnabled="false" />
         </FrameLayout>
-    </LinearLayout>
+    </com.android.systemui.animation.view.LaunchableLinearLayout>
 
     <ViewStub
         android:id="@+id/odi_captions_tooltip_stub"

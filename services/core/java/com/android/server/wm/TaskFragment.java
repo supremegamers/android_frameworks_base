@@ -85,6 +85,7 @@ import android.content.res.Configuration;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.IBinder;
+import android.os.PowerManagerInternal.PowerExtBoosts;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.DisplayMetrics;
@@ -1246,12 +1247,23 @@ class TaskFragment extends WindowContainer<WindowContainer> {
             lastResumed = lastFocusedRootTask.getTopResumedActivity();
         }
 
+        ActivityRecord lastActivity = lastResumed == null ? mResumedActivity : lastResumed;
+
         boolean pausing = !deferPause && taskDisplayArea.pauseBackTasks(next);
         if (mResumedActivity != null) {
             ProtoLog.d(WM_DEBUG_STATES, "resumeTopActivity: Pausing %s", mResumedActivity);
             pausing |= startPausing(mTaskSupervisor.mUserLeaving, false /* uiSleeping */,
                     next, "resumeTopActivity");
         }
+
+        if (mAtmService.mWindowManager.mPowerManagerInternal != null &&
+            !getDisplayContent().getDisplayPolicy().isKeyguardShowing()) {
+            if (lastActivity != null && next != null && lastActivity.packageName != next.packageName) {
+                mAtmService.mWindowManager.mPowerManagerInternal.setPowerExtBoost(
+                    PowerExtBoosts.PACKAGE_SWITCH.name(), 4000);
+            }
+        }
+
         if (pausing) {
             ProtoLog.v(WM_DEBUG_STATES, "resumeTopActivity: Skip resume: need to"
                     + " start pausing");
@@ -1955,7 +1967,7 @@ class TaskFragment extends WindowContainer<WindowContainer> {
                         1f);
                 mBackScreenshots.put(r.mActivityComponent.flattenToString(), backBuffer);
             }
-            child.asActivityRecord().inHistory = true;
+            addingActivity.inHistory = true;
             task.onDescendantActivityAdded(taskHadActivity, activityType, addingActivity);
         }
     }
@@ -2245,8 +2257,8 @@ class TaskFragment extends WindowContainer<WindowContainer> {
                     // task, because they should not be affected by insets.
                     inOutConfig.smallestScreenWidthDp = (int) (0.5f
                             + Math.min(mTmpFullBounds.width(), mTmpFullBounds.height()) / density);
-                } else if (windowingMode == WINDOWING_MODE_MULTI_WINDOW
-                        && isEmbeddedWithBoundsOverride()) {
+                } else if (windowingMode == WINDOWING_MODE_MULTI_WINDOW && mIsEmbedded
+                        && insideParentBounds && !resolvedBounds.equals(parentBounds)) {
                     // For embedded TFs, the smallest width should be updated. Otherwise, inherit
                     // from the parent task would result in applications loaded wrong resource.
                     inOutConfig.smallestScreenWidthDp =
@@ -2500,13 +2512,18 @@ class TaskFragment extends WindowContainer<WindowContainer> {
         }
     }
 
-    /** Records the starting bounds of the closing organized TaskFragment. */
-    void setClosingChangingStartBoundsIfNeeded() {
+    /**
+     * Returns {@code true} if the starting bounds of the closing organized TaskFragment is
+     * recorded. Otherwise, return {@code false}.
+     */
+    boolean setClosingChangingStartBoundsIfNeeded() {
         if (isOrganizedTaskFragment() && mDisplayContent != null
                 && mDisplayContent.mChangingContainers.remove(this)) {
             mDisplayContent.mClosingChangingContainers.put(
                     this, new Rect(mSurfaceFreezer.mFreezeBounds));
+            return true;
         }
+        return false;
     }
 
     @Override

@@ -27,7 +27,6 @@ import com.android.settingslib.mobile.TelephonyIcons;
 import com.android.systemui.R;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.statusbar.connectivity.IconState;
-import com.android.systemui.statusbar.connectivity.ImsIconState;
 import com.android.systemui.statusbar.connectivity.MobileDataIndicators;
 import com.android.systemui.statusbar.connectivity.NetworkController;
 import com.android.systemui.statusbar.connectivity.SignalCallback;
@@ -57,7 +56,6 @@ public class StatusBarSignalPolicy implements SignalCallback,
     private final String mSlotVpn;
     private final String mSlotNoCalling;
     private final String mSlotCallStrength;
-    private final String mSlotIms;
 
     private final Context mContext;
     private final StatusBarIconController mIconController;
@@ -72,7 +70,6 @@ public class StatusBarSignalPolicy implements SignalCallback,
     private boolean mHideWifi;
     private boolean mHideEthernet;
     private boolean mActivityEnabled;
-    private boolean mHideIms;
 
     // Track as little state as possible, and only for padding purposes
     private boolean mIsAirplaneMode = false;
@@ -109,7 +106,6 @@ public class StatusBarSignalPolicy implements SignalCallback,
         mSlotCallStrength =
                 mContext.getString(com.android.internal.R.string.status_bar_call_strength);
         mActivityEnabled = mContext.getResources().getBoolean(R.bool.config_showActivity);
-        mSlotIms = mContext.getString(com.android.internal.R.string.status_bar_ims);
     }
 
     /** Call to initilaize and register this classw with the system. */
@@ -160,16 +156,13 @@ public class StatusBarSignalPolicy implements SignalCallback,
         boolean hideMobile = hideList.contains(mSlotMobile);
         boolean hideWifi = hideList.contains(mSlotWifi);
         boolean hideEthernet = hideList.contains(mSlotEthernet);
-        boolean hideIms = hideList.contains(mSlotIms);
 
         if (hideAirplane != mHideAirplane || hideMobile != mHideMobile
-                || hideEthernet != mHideEthernet || hideWifi != mHideWifi
-                || hideIms != mHideIms) {
+                || hideEthernet != mHideEthernet || hideWifi != mHideWifi) {
             mHideAirplane = hideAirplane;
             mHideMobile = hideMobile;
             mHideEthernet = hideEthernet;
             mHideWifi = hideWifi;
-            mHideIms = hideIms;
             // Re-register to get new callbacks.
             mNetworkController.removeCallback(this);
             mNetworkController.addCallback(this);
@@ -202,18 +195,24 @@ public class StatusBarSignalPolicy implements SignalCallback,
             newState.activityIn = in;
             newState.activityOut = out;
             newState.contentDescription = indicators.statusIcon.contentDescription;
-            MobileIconState first = getFirstMobileState();
-            newState.signalSpacerVisible = first != null && first.typeId != 0;
+            updateShowWifiSignalSpacer(newState);
         }
         newState.slot = mSlotWifi;
-        newState.airplaneSpacerVisible = mIsAirplaneMode;
+        // Show the airplane spacer only if the mobile state is null
+        // or vowifi is not visible.
+        // Otherwise wifi icon view will end up with two spacers
+        // (signal and airplane).
+        // so it creates large space between wifi and VoWifi icon.
+        MobileIconState first = getFirstMobileState();
+        newState.airplaneSpacerVisible = mIsAirplaneMode &&
+                (first == null || first.typeId != R.drawable.ic_vowifi);
         updateWifiIconWithState(newState);
         mWifiIconState = newState;
     }
 
     private void updateShowWifiSignalSpacer(WifiIconState state) {
         MobileIconState first = getFirstMobileState();
-        state.signalSpacerVisible = first != null && first.typeId != 0;
+        state.signalSpacerVisible = first != null && (first.typeId != 0 || first.showHd);
     }
 
     private void updateWifiIconWithState(WifiIconState state) {
@@ -264,9 +263,10 @@ public class StatusBarSignalPolicy implements SignalCallback,
             return;
         }
 
-        // Visibility of the data type indicator changed
-        boolean typeChanged = indicators.statusType != state.typeId
-                && (indicators.statusType == 0 || state.typeId == 0);
+        // Visibility of the data type indicator or HD icon changed
+        boolean typeChanged = (indicators.statusType != state.typeId
+                && (indicators.statusType == 0 || state.typeId == 0))
+                || indicators.showHd != state.showHd;
 
         state.visible = indicators.statusIcon.visible && !mHideMobile;
         state.strengthId = indicators.statusIcon.icon;
@@ -274,9 +274,12 @@ public class StatusBarSignalPolicy implements SignalCallback,
         state.contentDescription = indicators.statusIcon.contentDescription;
         state.typeContentDescription = indicators.typeContentDescription;
         state.showTriangle = indicators.showTriangle;
-        state.roaming = indicators.roaming;
+        state.showHd = indicators.showHd;
         state.activityIn = indicators.activityIn && mActivityEnabled;
         state.activityOut = indicators.activityOut && mActivityEnabled;
+        state.typeSpacerVisible = mMobileStates.size() > 1
+               && mMobileStates.get(1).subId == state.subId
+               && state.typeId != 0 && state.typeId != R.drawable.ic_vowifi;
 
         if (DEBUG) {
             Log.d(TAG, "MobileIconStates: "
@@ -414,16 +417,6 @@ public class StatusBarSignalPolicy implements SignalCallback,
     @Override
     public void setMobileDataEnabled(boolean enabled) {
         // Don't care.
-    }
-
-    @Override
-    public void setImsIcon(ImsIconState icon) {
-        if (icon.visible && !mHideIms) {
-            mIconController.setImsIcon(mSlotIms, icon);
-            mIconController.setIconVisibility(mSlotIms, true);
-        } else {
-            mIconController.setIconVisibility(mSlotIms, false);
-        }
     }
 
     /**
@@ -583,9 +576,10 @@ public class StatusBarSignalPolicy implements SignalCallback,
         public int strengthId;
         public int typeId;
         public boolean showTriangle;
-        public boolean roaming;
+        public boolean showHd;
         public boolean needsLeadingPadding;
         public CharSequence typeContentDescription;
+        public boolean typeSpacerVisible;
 
         private MobileIconState(int subId) {
             super();
@@ -605,16 +599,17 @@ public class StatusBarSignalPolicy implements SignalCallback,
                     && strengthId == that.strengthId
                     && typeId == that.typeId
                     && showTriangle == that.showTriangle
-                    && roaming == that.roaming
+                    && showHd == that.showHd
                     && needsLeadingPadding == that.needsLeadingPadding
-                    && Objects.equals(typeContentDescription, that.typeContentDescription);
+                    && Objects.equals(typeContentDescription, that.typeContentDescription)
+                    && typeSpacerVisible == that.typeSpacerVisible;
         }
 
         @Override
         public int hashCode() {
 
             return Objects
-                    .hash(super.hashCode(), subId, strengthId, typeId, showTriangle, roaming,
+                    .hash(super.hashCode(), subId, strengthId, typeId, showTriangle, showHd,
                             needsLeadingPadding, typeContentDescription);
         }
 
@@ -630,9 +625,10 @@ public class StatusBarSignalPolicy implements SignalCallback,
             other.strengthId = strengthId;
             other.typeId = typeId;
             other.showTriangle = showTriangle;
-            other.roaming = roaming;
+            other.showHd = showHd;
             other.needsLeadingPadding = needsLeadingPadding;
             other.typeContentDescription = typeContentDescription;
+            other.typeSpacerVisible = typeSpacerVisible;
         }
 
         private static List<MobileIconState> copyStates(List<MobileIconState> inStates) {
@@ -648,8 +644,9 @@ public class StatusBarSignalPolicy implements SignalCallback,
 
         @Override public String toString() {
             return "MobileIconState(subId=" + subId + ", strengthId=" + strengthId
-                    + ", showTriangle=" + showTriangle + ", roaming=" + roaming
-                    + ", typeId=" + typeId + ", visible=" + visible + ")";
+                    + ", showTriangle=" + showTriangle + ", showHd=" + showHd
+                    + ", typeId=" + typeId + ", typeSpacerVisible=" + typeSpacerVisible
+                    + ", visible=" + visible + ")";
         }
     }
 }

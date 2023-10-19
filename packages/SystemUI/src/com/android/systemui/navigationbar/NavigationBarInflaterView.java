@@ -16,6 +16,7 @@
 
 package com.android.systemui.navigationbar;
 
+import static android.inputmethodservice.InputMethodService.canImeRenderGesturalNavButtons;
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.WindowManagerPolicyConstants.NAV_BAR_MODE_3BUTTON;
 import static android.view.WindowManagerPolicyConstants.NAV_BAR_MODE_GESTURAL;
@@ -25,7 +26,9 @@ import android.app.ActivityManager;
 import android.content.Context;
 import android.content.om.IOverlayManager;
 import android.content.res.Configuration;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
+import android.os.AsyncTask;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.provider.Settings;
@@ -43,11 +46,12 @@ import android.widget.Space;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.systemui.Dependency;
 import com.android.systemui.R;
+import com.android.systemui.navigationbar.NavigationBarView.UpdateBoundsCallback;
 import com.android.systemui.navigationbar.buttons.ButtonDispatcher;
+import com.android.systemui.navigationbar.buttons.KeyButtonDrawable;
 import com.android.systemui.navigationbar.buttons.KeyButtonView;
 import com.android.systemui.navigationbar.buttons.ReverseLinearLayout;
 import com.android.systemui.navigationbar.buttons.ReverseLinearLayout.ReverseRelativeLayout;
-import com.android.systemui.recents.OverviewProxyService;
 import com.android.systemui.shared.system.QuickStepContract;
 import com.android.systemui.tuner.TunerService;
 
@@ -95,7 +99,7 @@ public class NavigationBarInflaterView extends FrameLayout
     public static final String WEIGHT_SUFFIX = "W";
     public static final String WEIGHT_CENTERED_SUFFIX = "WC";
     
-    private static final String KEY_NAVIGATION_HINT =
+    public static final String KEY_NAVIGATION_HINT =
             "customsystem:" + Settings.System.NAVIGATION_BAR_HINT;
     private static final String OVERLAY_NAVIGATION_HIDE_HINT =
             "com.libremobileos.overlay.customization.navbar.nohint";
@@ -108,27 +112,27 @@ public class NavigationBarInflaterView extends FrameLayout
 
     @VisibleForTesting
     SparseArray<ButtonDispatcher> mButtonDispatchers;
+    private UpdateBoundsCallback mBoundsChangeListener;
     private String mCurrentLayout;
+    private String mCurrentLayoutReal;
+    protected int mLightIconColor;
+    protected int mDarkIconColor;
 
     private View mLastPortrait;
     private View mLastLandscape;
 
-    private boolean mIsVertical;
+    protected boolean mIsVertical;
     private boolean mAlternativeOrder;
 
-    private OverviewProxyService mOverviewProxyService;
-    private int mNavBarMode = NAV_BAR_MODE_3BUTTON;
+    protected int mNavBarMode = -1;
     private String mNavBarLayout;
 
     private boolean mInverseLayout;
     private boolean mIsHintEnabled;
-    private boolean mUsingCustomLayout;
 
     public NavigationBarInflaterView(Context context, AttributeSet attrs) {
         super(context, attrs);
         createInflaters();
-        mOverviewProxyService = Dependency.get(OverviewProxyService.class);
-        mNavBarMode = Dependency.get(NavigationModeController.class).addListener(this);
     }
 
     @VisibleForTesting
@@ -138,6 +142,10 @@ public class NavigationBarInflaterView extends FrameLayout
         landscape.setTo(mContext.getResources().getConfiguration());
         landscape.orientation = Configuration.ORIENTATION_LANDSCAPE;
         mLandscapeInflater = LayoutInflater.from(mContext.createConfigurationContext(landscape));
+    }
+
+    public void setBoundsChangeListener(UpdateBoundsCallback callback) {
+        mBoundsChangeListener = callback;
     }
 
     @Override
@@ -162,24 +170,31 @@ public class NavigationBarInflaterView extends FrameLayout
     protected String getDefaultLayout() {
         final int defaultResource = QuickStepContract.isGesturalMode(mNavBarMode)
                 ? R.string.config_navBarLayoutHandle
-                : mOverviewProxyService.shouldShowSwipeUpUI()
+                : QuickStepContract.isSwipeUpMode(mNavBarMode)
                         ? R.string.config_navBarLayoutQuickstep
                         : R.string.config_navBarLayout;
-        if (!mIsHintEnabled && defaultResource == R.string.config_navBarLayoutHandle) {
-            return getContext().getString(defaultResource).replace(HOME_HANDLE, "");
-        }
         return getContext().getString(defaultResource);
     }
 
     @Override
     public void onNavigationModeChanged(int mode) {
-        mNavBarMode = mode;
-        updateHint();
+        if (mNavBarMode != mode && mNavBarMode != -1) {
+            mNavBarMode = mode;
+            updateHint();
+            Settings.Secure.putString(getContext().getContentResolver(),
+                    NAV_BAR_VIEWS, null);
+            setNavigationBarLayout(mNavBarLayout, true);
+        } else {
+            mNavBarMode = mode;
+            updateHint();
+            onLikelyDefaultLayoutChange();
+        }
     }
 
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        mNavBarMode = Dependency.get(NavigationModeController.class).addListener(this);
         Dependency.get(TunerService.class).addTunable(this, NAV_BAR_INVERSE);
         Dependency.get(TunerService.class).addTunable(this, KEY_NAVIGATION_HINT);
         Dependency.get(TunerService.class).addTunable(this, NAV_BAR_VIEWS);
@@ -195,21 +210,15 @@ public class NavigationBarInflaterView extends FrameLayout
     @Override
     public void onTuningChanged(String key, String newValue) {
         if (NAV_BAR_VIEWS.equals(key)) {
-            mNavBarLayout = (String) newValue;
-            if (!QuickStepContract.isGesturalMode(mNavBarMode)) {
-                setNavigationBarLayout(mNavBarLayout);
-            }
-        }
-        if (NAV_BAR_INVERSE.equals(key)) {
+            mNavBarLayout = newValue;
+            setNavigationBarLayout(mNavBarLayout, true);
+        } else if (NAV_BAR_INVERSE.equals(key)) {
             mInverseLayout = TunerService.parseIntegerSwitch(newValue, false);
             updateLayoutInversion();
         } else if (KEY_NAVIGATION_HINT.equals(key)) {
             mIsHintEnabled = TunerService.parseIntegerSwitch(newValue, true);
             updateHint();
-            onLikelyDefaultLayoutChange();
-        }
-        if (QuickStepContract.isGesturalMode(mNavBarMode)) {
-            setNavigationBarLayout(newValue);
+            setNavigationBarLayout(mNavBarLayout, true);
         }
     }
 
@@ -219,18 +228,21 @@ public class NavigationBarInflaterView extends FrameLayout
         updateLayoutInversion();
     }
 
-    public void setNavigationBarLayout(String layoutValue) {
-        if (!Objects.equals(mCurrentLayout, layoutValue)) {
+    private void setNavigationBarLayout(String layoutValue, boolean force) {
+        if (force || !Objects.equals(mCurrentLayout, layoutValue)) {
             clearViews();
             inflateLayout(layoutValue);
         }
     }
 
-    public void onLikelyDefaultLayoutChange() {
-        setNavigationBarLayout(getDefaultLayout());
-        if (!QuickStepContract.isGesturalMode(mNavBarMode)) {
-            setNavigationBarLayout(mNavBarLayout);
+    public void forceReinflate() {
+        if (mHorizontal != null && mVertical != null) {
+            setNavigationBarLayout(mCurrentLayout, true);
         }
+    }
+
+    public void onLikelyDefaultLayoutChange() {
+        setNavigationBarLayout(mNavBarLayout, false);
     }
 
     public void setButtonDispatchers(SparseArray<ButtonDispatcher> buttonDispatchers) {
@@ -239,6 +251,11 @@ public class NavigationBarInflaterView extends FrameLayout
         for (int i = 0; i < buttonDispatchers.size(); i++) {
             initiallyFill(buttonDispatchers.valueAt(i));
         }
+    }
+
+    public void setIconColors(int light, int dark) {
+        mLightIconColor = light;
+        mDarkIconColor = dark;
     }
 
     void updateButtonDispatchersCurrentView() {
@@ -251,13 +268,13 @@ public class NavigationBarInflaterView extends FrameLayout
         }
     }
 
-    void setVertical(boolean vertical) {
+    public void setVertical(boolean vertical) {
         if (vertical != mIsVertical) {
             mIsVertical = vertical;
         }
     }
 
-    void setAlternativeOrder(boolean alternativeOrder) {
+    public void setAlternativeOrder(boolean alternativeOrder) {
         if (alternativeOrder != mAlternativeOrder) {
             mAlternativeOrder = alternativeOrder;
             updateAlternativeOrder();
@@ -265,10 +282,12 @@ public class NavigationBarInflaterView extends FrameLayout
     }
 
     private void updateAlternativeOrder() {
-        updateAlternativeOrder(mHorizontal.findViewById(R.id.ends_group));
-        updateAlternativeOrder(mHorizontal.findViewById(R.id.center_group));
-        updateAlternativeOrder(mVertical.findViewById(R.id.ends_group));
-        updateAlternativeOrder(mVertical.findViewById(R.id.center_group));
+        if (mHorizontal != null && mVertical != null) {
+            updateAlternativeOrder(mHorizontal.findViewById(R.id.ends_group));
+            updateAlternativeOrder(mHorizontal.findViewById(R.id.center_group));
+            updateAlternativeOrder(mVertical.findViewById(R.id.ends_group));
+            updateAlternativeOrder(mVertical.findViewById(R.id.center_group));
+        }
     }
 
     private void updateAlternativeOrder(View v) {
@@ -320,15 +339,23 @@ public class NavigationBarInflaterView extends FrameLayout
 
     protected void inflateLayout(String newLayout) {
         mCurrentLayout = newLayout;
-        if (newLayout == null) {
+        if (newLayout == null || (canImeRenderGesturalNavButtons()
+                && QuickStepContract.isGesturalMode(mNavBarMode))) {
             newLayout = getDefaultLayout();
+        }
+        if (!mIsHintEnabled && QuickStepContract.isGesturalMode(mNavBarMode)) {
+            newLayout = newLayout.replace(HOME_HANDLE, "");
         }
         String[] sets = newLayout.split(GRAVITY_SEPARATOR, 3);
         if (sets.length != 3) {
-            Log.d(TAG, "Invalid layout.");
+            Log.w(TAG, "Invalid layout.");
             newLayout = getDefaultLayout();
+            if (!mIsHintEnabled && QuickStepContract.isGesturalMode(mNavBarMode)) {
+                newLayout = newLayout.replace(HOME_HANDLE, "");
+            }
             sets = newLayout.split(GRAVITY_SEPARATOR, 3);
         }
+        mCurrentLayoutReal = newLayout;
         String[] start = sets[0].split(BUTTON_SEPARATOR);
         String[] center = sets[1].split(BUTTON_SEPARATOR);
         String[] end = sets[2].split(BUTTON_SEPARATOR);
@@ -355,6 +382,9 @@ public class NavigationBarInflaterView extends FrameLayout
         inflateCursorButtons(mVertical.findViewById(R.id.dpad_group), true /* landscape */);
 
         updateButtonDispatchersCurrentView();
+        if (mBoundsChangeListener != null) {
+            mBoundsChangeListener.onBoundsChange();
+        }
     }
 
     private void updateLayoutInversion() {
@@ -472,7 +502,7 @@ public class NavigationBarInflaterView extends FrameLayout
         return v;
     }
 
-    View createView(String buttonSpec, ViewGroup parent, LayoutInflater inflater) {
+    public View createView(String buttonSpec, ViewGroup parent, LayoutInflater inflater) {
         View v = null;
         String button = extractButton(buttonSpec);
         if (LEFT.equals(button)) {
@@ -508,15 +538,30 @@ public class NavigationBarInflaterView extends FrameLayout
             String uri = extractImage(button);
             int code = extractKeycode(button);
             v = inflater.inflate(R.layout.custom_key, parent, false);
-            ((KeyButtonView) v).setCode(code);
+            final KeyButtonView kv = (KeyButtonView) v;
+            kv.setCode(code);
             if (uri != null) {
+                Icon d = null;
                 if (uri.contains(":")) {
-                    ((KeyButtonView) v).loadAsync(Icon.createWithContentUri(uri));
+                    d = Icon.createWithContentUri(uri);
                 } else if (uri.contains("/")) {
                     int index = uri.indexOf('/');
                     String pkg = uri.substring(0, index);
                     int id = Integer.parseInt(uri.substring(index + 1));
-                    ((KeyButtonView) v).loadAsync(Icon.createWithResource(pkg, id));
+                    d = Icon.createWithResource(pkg, id);
+                }
+                if (d != null) {
+                    new AsyncTask<Icon, Void, Drawable>() {
+                        @Override
+                        protected Drawable doInBackground(Icon... params) {
+                            return getDrawable(params[0].loadDrawable(getContext()));
+                        }
+
+                        @Override
+                        protected void onPostExecute(Drawable drawable) {
+                            kv.setImageDrawable(drawable);
+                        }
+                    }.execute(d);
                 }
             }
         }
@@ -586,6 +631,10 @@ public class NavigationBarInflaterView extends FrameLayout
         clearAllChildren(mVertical.findViewById(R.id.nav_buttons));
     }
 
+    boolean hasKey(String key) {
+        return mCurrentLayoutReal.contains(key);
+    }
+
     private void clearAllChildren(ViewGroup group) {
         for (int i = 0; i < group.getChildCount(); i++) {
             ((ViewGroup) group.getChildAt(i)).removeAllViews();
@@ -594,6 +643,11 @@ public class NavigationBarInflaterView extends FrameLayout
 
     private static float convertDpToPx(Context context, float dp) {
         return dp * context.getResources().getDisplayMetrics().density;
+    }
+
+    private KeyButtonDrawable getDrawable(Drawable icon) {
+        return KeyButtonDrawable.create(getContext(), mLightIconColor, mDarkIconColor, icon,
+                true /* hasShadow */, null /* ovalBackgroundColor */);
     }
 
     public void dump(PrintWriter pw) {

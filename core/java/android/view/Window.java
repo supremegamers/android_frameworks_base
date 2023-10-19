@@ -827,6 +827,11 @@ public abstract class Window {
     /** @hide */
     public final void destroy() {
         mDestroyed = true;
+        onDestroy();
+    }
+
+    /** @hide */
+    protected void onDestroy() {
     }
 
     /** @hide */
@@ -1287,6 +1292,16 @@ public abstract class Window {
     private void setPrivateFlags(int flags, int mask) {
         final WindowManager.LayoutParams attrs = getAttributes();
         attrs.privateFlags = (attrs.privateFlags & ~mask) | (flags & mask);
+        dispatchWindowAttributesChanged(attrs);
+    }
+
+    /**
+     * {@hide}
+     */
+    @UnsupportedAppUsage
+    protected void setNeedsMenuKey(int value) {
+        final WindowManager.LayoutParams attrs = getAttributes();
+        attrs.needsMenuKey = value;
         dispatchWindowAttributesChanged(attrs);
     }
 

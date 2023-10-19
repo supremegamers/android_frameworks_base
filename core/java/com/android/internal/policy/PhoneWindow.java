@@ -24,6 +24,7 @@ import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 import static android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
 import static android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN;
 import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR;
+import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_OVERSCAN;
 import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
 import static android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER;
 import static android.view.WindowManager.LayoutParams.FLAG_SPLIT_TOUCH;
@@ -295,6 +296,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
     private boolean mClosingActionMenu;
 
     private int mVolumeControlStreamType = AudioManager.USE_DEFAULT_STREAM_TYPE;
+    private int mAudioMode = AudioManager.MODE_NORMAL;
     private MediaController mMediaController;
 
     private AudioManager mAudioManager;
@@ -316,6 +318,8 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             mInvalidatePanelMenuFeatures = 0;
         }
     };
+
+    private AudioManager.OnModeChangedListener mOnModeChangedListener;
 
     private Transition mEnterTransition = null;
     private Transition mReturnTransition = USE_DEFAULT_TRANSITION;
@@ -379,8 +383,12 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             // window, as we'll be skipping the addView in handleResumeActivity(), and
             // the token will not be updated as for a new window.
             getAttributes().token = preservedWindow.getAttributes().token;
-            mProxyOnBackInvokedDispatcher.setActualDispatcher(
-                    preservedWindow.getOnBackInvokedDispatcher());
+            final ViewRootImpl viewRoot = mDecor.getViewRootImpl();
+            if (viewRoot != null) {
+                // Clear the old callbacks and attach to the new window.
+                viewRoot.getOnBackInvokedDispatcher().clear();
+                onViewRootImplSet(viewRoot);
+            }
         }
         // Even though the device doesn't support picture-in-picture mode,
         // an user can force using it through developer options.
@@ -870,6 +878,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
 
             // This will populate st.shownPanelView
             if (!initializePanelContent(st) || !st.hasPanelItems()) {
+                closePanel(st, true);
                 return;
             }
 
@@ -915,9 +924,11 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             }
         }
 
-        if (!st.hasPanelItems()) {
+        // This will populate st.shownPanelView if needed
+        if ((st.shownPanelView == null && !initializePanelContent(st)) || !st.hasPanelItems()) {
             // Ensure that |st.decorView| has its actual content. Otherwise, an empty window can be
             // created and cause ANR.
+            closePanel(st, true);
             return;
         }
 
@@ -1946,9 +1957,9 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             case KeyEvent.KEYCODE_VOLUME_UP:
             case KeyEvent.KEYCODE_VOLUME_DOWN:
             case KeyEvent.KEYCODE_VOLUME_MUTE: {
-                // If we have a session send it the volume command, otherwise
-                // use the suggested stream.
-                if (mMediaController != null) {
+                // If we have a session and no active phone call send it the volume command,
+                // otherwise use the suggested stream.
+                if (mMediaController != null && !isActivePhoneCallOngoing()) {
                     getMediaSessionManager().dispatchVolumeKeyEventToSessionAsSystemService(event,
                             mMediaController.getSessionToken());
                 } else {
@@ -1997,6 +2008,11 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         }
 
         return false;
+    }
+
+    private boolean isActivePhoneCallOngoing() {
+        return mAudioMode == AudioManager.MODE_IN_CALL
+                || mAudioMode == AudioManager.MODE_IN_COMMUNICATION;
     }
 
     private KeyguardManager getKeyguardManager() {
@@ -2322,6 +2338,14 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        if (mOnModeChangedListener != null) {
+            getAudioManager().removeOnModeChangedListener(mOnModeChangedListener);
+            mOnModeChangedListener = null;
+        }
+    }
+
     private class PanelMenuPresenterCallback implements MenuPresenter.Callback {
         @Override
         public void onCloseMenu(MenuBuilder menu, boolean allMenusAreClosing) {
@@ -2494,8 +2518,18 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
 
         final Context context = getContext();
         final int targetSdk = context.getApplicationInfo().targetSdkVersion;
+        final boolean targetPreHoneycomb = targetSdk < android.os.Build.VERSION_CODES.HONEYCOMB;
+        final boolean targetPreIcs = targetSdk < android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH;
         final boolean targetPreL = targetSdk < android.os.Build.VERSION_CODES.LOLLIPOP;
         final boolean targetPreQ = targetSdk < Build.VERSION_CODES.Q;
+        final boolean targetHcNeedsOptions = true; // nift4: we always need menu key
+        final boolean noActionBar = !hasFeature(FEATURE_ACTION_BAR) || hasFeature(FEATURE_NO_TITLE);
+
+        if (targetPreHoneycomb || (targetPreIcs && targetHcNeedsOptions && noActionBar)) {
+            setNeedsMenuKey(WindowManager.LayoutParams.NEEDS_MENU_SET_TRUE);
+        } else {
+            setNeedsMenuKey(WindowManager.LayoutParams.NEEDS_MENU_SET_FALSE);
+        }
 
         if (!mForcedStatusBarColor) {
             mStatusBarColor = a.getColor(R.styleable.Window_statusBarColor, 0xFF000000);
@@ -3204,6 +3238,15 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
     @Override
     public void setMediaController(MediaController controller) {
         mMediaController = controller;
+        if (controller != null && mOnModeChangedListener == null) {
+            mAudioMode = getAudioManager().getMode();
+            mOnModeChangedListener = mode -> mAudioMode = mode;
+            getAudioManager().addOnModeChangedListener(getContext().getMainExecutor(),
+                    mOnModeChangedListener);
+        } else if (mOnModeChangedListener != null) {
+            getAudioManager().removeOnModeChangedListener(mOnModeChangedListener);
+            mOnModeChangedListener = null;
+        }
     }
 
     @Override

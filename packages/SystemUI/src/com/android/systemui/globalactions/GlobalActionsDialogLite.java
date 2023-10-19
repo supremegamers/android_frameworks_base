@@ -23,6 +23,7 @@ import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_M
 import static android.view.WindowManager.ScreenshotSource.SCREENSHOT_GLOBAL_ACTIONS;
 import static android.view.WindowManager.TAKE_SCREENSHOT_FULLSCREEN;
 import static android.view.WindowManager.TAKE_SCREENSHOT_SELECTED_REGION;
+import static android.view.WindowManagerPolicyConstants.NAV_BAR_MODE_2BUTTON;
 
 import android.view.CrossWindowBlurListeners;
 import com.android.systemui.statusbar.BlurUtils;
@@ -60,6 +61,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
@@ -94,6 +96,8 @@ import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
@@ -1024,7 +1028,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
                         | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 intent.putExtra(EmergencyDialerConstants.EXTRA_ENTRY_TYPE,
                         EmergencyDialerConstants.ENTRY_TYPE_POWER_MENU);
-                mContext.startActivityAsUser(intent, UserHandle.CURRENT);
+                mContext.startActivityAsUser(intent, mUserTracker.getUserHandle());
             }
         }
     }
@@ -2500,6 +2504,10 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
                     || Intent.ACTION_SCREEN_OFF.equals(action)) {
                 String reason = intent.getStringExtra(SYSTEM_DIALOG_REASON_KEY);
                 if (!SYSTEM_DIALOG_REASON_GLOBAL_ACTIONS.equals(reason)) {
+                    // These broadcasts are usually received when locking the device, swiping up to
+                    // home (which collapses the shade), etc. In those cases, we usually don't want
+                    // to animate this dialog back into the view, so we disable the exit animations.
+                    mDialogLaunchAnimator.disableAllCurrentDialogsExitAnimations();
                     mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_DISMISS, reason));
                 }
             } else if (TelephonyManager.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED.equals(action)) {
@@ -2627,7 +2635,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         protected Drawable mBackgroundDrawable;
         protected final SysuiColorExtractor mColorExtractor;
         private boolean mKeyguardShowing;
-	protected float mScrimAlpha;
+        protected float mScrimAlpha;
         protected final NotificationShadeWindowController mNotificationShadeWindowController;
         private ListPopupWindow mOverflowPopup;
         private Dialog mPowerOptionsDialog;
@@ -2734,6 +2742,29 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             mGestureDetector = new GestureDetector(mContext, mGestureListener);
             mBlurUtils = new BlurUtils(mContext.getResources(),
                     CrossWindowBlurListeners.getInstance(), new DumpManager());
+            // Window initialization
+            Window window = getWindow();
+            window.requestFeature(Window.FEATURE_NO_TITLE);
+            // Inflate the decor view, so the attributes below are not overwritten by the theme.
+            window.getDecorView();
+            window.setLayout(MATCH_PARENT, MATCH_PARENT);
+            window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                    | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                    | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                    | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+                    | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+            if (mBlurUtils.supportsBlursOnWindows()) {
+                // Enable blur behind
+                // Enable dim behind since we are setting some amount dim for the blur.
+                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+                        | WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                // Set blur behind radius
+                int blurBehindRadius = mContext.getResources()
+                        .getDimensionPixelSize(com.android.systemui.R.dimen.max_window_blur_radius);
+                window.getAttributes().setBlurBehindRadius(blurBehindRadius);
+            }
+            window.setType(WindowManager.LayoutParams.TYPE_VOLUME_OVERLAY);
+            window.getAttributes().setFitInsetsTypes(0 /* types */);
         }
 
         @Override
@@ -2862,6 +2893,14 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             });
             mGlobalActionsLayout.setRotationListener(this::onRotate);
             mGlobalActionsLayout.setAdapter(mAdapter);
+            ViewGroup root = (ViewGroup) mGlobalActionsLayout.getRootView();
+            root.setOnApplyWindowInsetsListener((v, windowInsets) -> {
+                Insets i = windowInsets.getInsetsIgnoringVisibility(
+                        WindowInsets.Type.navigationBars() | WindowInsets.Type.systemGestures()
+                        | WindowInsets.Type.displayCutout());
+                root.setPadding(i.left, i.top, i.right, i.bottom);
+                return WindowInsets.CONSUMED;
+            });
             mContainer = findViewById(com.android.systemui.R.id.global_actions_container);
             // Some legacy dialog layouts don't have the outer container
             if (mContainer == null) {
@@ -2895,7 +2934,13 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
                 mBackgroundDrawable = new ScrimDrawable();
             }
 
-            getWindow().setDimAmount(mBlurUtils.supportsBlursOnWindows() ? 0.54f : 0.88f);
+            // Set dim only when blur is enabled.
+            if (mBlurUtils.supportsBlursOnWindows()) {
+                getWindow().setDimAmount(0.54f);
+                mScrimAlpha = 0.0f;
+            } else {
+                mScrimAlpha = 1.0f;
+            }
 
             // If user entered from the lock screen and smart lock was enabled, disable it
             int user = KeyguardUpdateMonitor.getCurrentUser();
@@ -2970,12 +3015,17 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
                 return;
             }
             ((ScrimDrawable) mBackgroundDrawable).setColor(Color.BLACK, animate);
-            View decorView = getWindow().getDecorView();
+            WindowInsetsController insetController = getWindow().getInsetsController();
             if (colors.supportsDarkText()) {
-                decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-                        | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+                insetController.setSystemBarsAppearance(
+                        WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
+                        WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS);
             } else {
-                decorView.setSystemUiVisibility(0);
+                insetController.setSystemBarsAppearance(0,
+                        WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS);
             }
         }
 

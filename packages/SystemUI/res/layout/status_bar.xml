@@ -104,6 +104,25 @@
                         android:orientation="horizontal"
                         android:clipChildren="false"/>
 
+                    <com.android.systemui.statusbar.LineageStatusBarItemHolder
+                        android:id="@+id/network_traffic_holder_start"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:layoutDirection="ltr"
+                        android:gravity="center"
+                        android:paddingStart="4dp"
+                        >
+
+                        <com.android.systemui.statusbar.NetworkTraffic
+                            android:id="@+id/network_traffic_start"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:maxLines="2"
+                            android:gravity="center"
+                        />
+
+                    </com.android.systemui.statusbar.LineageStatusBarItemHolder>
+
                 </LinearLayout>
             </FrameLayout>
         </FrameLayout>
@@ -115,6 +134,23 @@
             android:layout_height="match_parent"
             android:gravity="center_horizontal|center_vertical"
         />
+
+        <com.android.systemui.statusbar.LineageStatusBarItemHolder
+            android:id="@+id/network_traffic_holder_center"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layoutDirection="ltr"
+            android:gravity="center"
+            >
+
+            <com.android.systemui.statusbar.NetworkTraffic
+                android:id="@+id/network_traffic_center"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:maxLines="2"
+                android:gravity="center" />
+
+        </com.android.systemui.statusbar.LineageStatusBarItemHolder>
 
         <!-- Container for the entire end half of the status bar. It will always use the same
              width, independent of the number of visible children and sub-children. -->
@@ -137,6 +173,25 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical|end"
                 android:clipChildren="false">
+
+                <com.android.systemui.statusbar.LineageStatusBarItemHolder
+                    android:id="@+id/network_traffic_holder_end"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layoutDirection="ltr"
+                    android:gravity="center"
+                    android:paddingLeft="2dp"
+                    >
+
+                    <com.android.systemui.statusbar.NetworkTraffic
+                        android:id="@+id/network_traffic_end"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:maxLines="2"
+                        android:gravity="center"
+                    />
+
+                </com.android.systemui.statusbar.LineageStatusBarItemHolder>
 
                 <include
                     android:id="@+id/user_switcher_container"
@@ -168,12 +223,5 @@
             systemui:isStatusBar="true"
         />
     </com.android.keyguard.AlphaOptimizedLinearLayout>
-
-    <ViewStub
-        android:id="@+id/emergency_cryptkeeper_text"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout="@layout/emergency_cryptkeeper_text"
-    />
 
 </com.android.systemui.statusbar.phone.PhoneStatusBarView>

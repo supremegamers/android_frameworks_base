@@ -17,6 +17,7 @@
 package com.android.systemui.media.controls.resume;
 
 import android.annotation.Nullable;
+import android.annotation.UserIdInt;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -53,6 +54,7 @@ public class ResumeMediaBrowser {
     private final ResumeMediaBrowserLogger mLogger;
     private final ComponentName mComponentName;
     private final MediaController.Callback mMediaControllerCallback = new SessionDestroyCallback();
+    @UserIdInt private final int mUserId;
 
     private MediaBrowser mMediaBrowser;
     @Nullable private MediaController mMediaController;
@@ -62,18 +64,21 @@ public class ResumeMediaBrowser {
      * @param context the context
      * @param callback used to report media items found
      * @param componentName Component name of the MediaBrowserService this browser will connect to
+     * @param userId ID of the current user
      */
     public ResumeMediaBrowser(
             Context context,
             @Nullable Callback callback,
             ComponentName componentName,
             MediaBrowserFactory browserFactory,
-            ResumeMediaBrowserLogger logger) {
+            ResumeMediaBrowserLogger logger,
+            @UserIdInt int userId) {
         mContext = context;
         mCallback = callback;
         mComponentName = componentName;
         mBrowserFactory = browserFactory;
         mLogger = logger;
+        mUserId = userId;
     }
 
     /**
@@ -85,16 +90,13 @@ public class ResumeMediaBrowser {
      * ResumeMediaBrowser#disconnect will be called automatically with this function.
      */
     public void findRecentMedia() {
-        disconnect();
         Bundle rootHints = new Bundle();
         rootHints.putBoolean(MediaBrowserService.BrowserRoot.EXTRA_RECENT, true);
-        mMediaBrowser = mBrowserFactory.create(
+        MediaBrowser browser = mBrowserFactory.create(
                 mComponentName,
                 mConnectionCallback,
                 rootHints);
-        updateMediaController();
-        mLogger.logConnection(mComponentName, "findRecentMedia");
-        mMediaBrowser.connect();
+        connectBrowser(browser, "findRecentMedia");
     }
 
     private final MediaBrowser.SubscriptionCallback mSubscriptionCallback =
@@ -202,6 +204,21 @@ public class ResumeMediaBrowser {
     };
 
     /**
+     * Connect using a new media browser. Disconnects the existing browser first, if it exists.
+     * @param browser media browser to connect
+     * @param reason Reason to log for connection
+     */
+    private void connectBrowser(MediaBrowser browser, String reason) {
+        mLogger.logConnection(mComponentName, reason);
+        disconnect();
+        mMediaBrowser = browser;
+        if (browser != null) {
+            browser.connect();
+        }
+        updateMediaController();
+    }
+
+    /**
      * Disconnect the media browser. This should be done after callbacks have completed to
      * disconnect from the media browser service.
      */
@@ -222,10 +239,9 @@ public class ResumeMediaBrowser {
      * getting a media update from the app
      */
     public void restart() {
-        disconnect();
         Bundle rootHints = new Bundle();
         rootHints.putBoolean(MediaBrowserService.BrowserRoot.EXTRA_RECENT, true);
-        mMediaBrowser = mBrowserFactory.create(mComponentName,
+        MediaBrowser browser = mBrowserFactory.create(mComponentName,
                 new MediaBrowser.ConnectionCallback() {
                     @Override
                     public void onConnected() {
@@ -265,14 +281,20 @@ public class ResumeMediaBrowser {
                         disconnect();
                     }
                 }, rootHints);
-        updateMediaController();
-        mLogger.logConnection(mComponentName, "restart");
-        mMediaBrowser.connect();
+        connectBrowser(browser, "restart");
     }
 
     @VisibleForTesting
     protected MediaController createMediaController(MediaSession.Token token) {
         return new MediaController(mContext, token);
+    }
+
+    /**
+     * Get the ID of the user associated with this broswer
+     * @return the user ID
+     */
+    public @UserIdInt int getUserId() {
+        return mUserId;
     }
 
     /**
@@ -305,16 +327,13 @@ public class ResumeMediaBrowser {
      * ResumeMediaBrowser#disconnect should be called after this to ensure the connection is closed.
      */
     public void testConnection() {
-        disconnect();
         Bundle rootHints = new Bundle();
         rootHints.putBoolean(MediaBrowserService.BrowserRoot.EXTRA_RECENT, true);
-        mMediaBrowser = mBrowserFactory.create(
+        MediaBrowser browser = mBrowserFactory.create(
                 mComponentName,
                 mConnectionCallback,
                 rootHints);
-        updateMediaController();
-        mLogger.logConnection(mComponentName, "testConnection");
-        mMediaBrowser.connect();
+        connectBrowser(browser, "testConnection");
     }
 
     /** Updates mMediaController based on our current browser values. */

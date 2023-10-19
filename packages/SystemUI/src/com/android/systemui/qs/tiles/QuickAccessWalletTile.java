@@ -16,6 +16,7 @@
 
 package com.android.systemui.qs.tiles;
 
+import static android.graphics.drawable.Icon.TYPE_URI;
 import static android.provider.Settings.Secure.NFC_PAYMENT_DEFAULT_COMPONENT;
 
 import static com.android.systemui.wallet.controller.QuickAccessWalletController.WalletChangeEvent.DEFAULT_PAYMENT_APP_CHANGE;
@@ -61,6 +62,8 @@ import javax.inject.Inject;
 
 /** Quick settings tile: Quick access wallet **/
 public class QuickAccessWalletTile extends QSTileImpl<QSTile.State> {
+
+    public static final String TILE_SPEC = "wallet";
 
     private static final String TAG = "QuickAccessWalletTile";
     private static final String FEATURE_CHROME_OS = "org.chromium.arc";
@@ -221,7 +224,12 @@ public class QuickAccessWalletTile extends QSTileImpl<QSTile.State> {
                 return;
             }
             mSelectedCard = cards.get(selectedIndex);
-            mCardViewDrawable = mSelectedCard.getCardImage().loadDrawable(mContext);
+            android.graphics.drawable.Icon cardImageIcon = mSelectedCard.getCardImage();
+            if (cardImageIcon.getType() == TYPE_URI) {
+                mCardViewDrawable = null;
+            } else {
+                mCardViewDrawable = mSelectedCard.getCardImage().loadDrawable(mContext);
+            }
             refreshState();
         }
 

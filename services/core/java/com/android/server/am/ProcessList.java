@@ -94,6 +94,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.PowerManager;
+import android.os.PowerManagerInternal.PowerExtBoosts;
 import android.os.Process;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
@@ -1681,6 +1682,10 @@ public final class ProcessList {
         mService.updateCpuStats();
         checkSlow(startUptime, "startProcess: done updating cpu stats");
 
+        if (mService.mLocalPowerManager != null && hostingRecord.getType().contains("activity") == true) {
+            mService.mLocalPowerManager.setPowerExtBoost(PowerExtBoosts.PROCESS_CREATE.name(), 4000);
+        }
+
         try {
             final int userId = UserHandle.getUserId(app.uid);
             try {
@@ -3022,9 +3027,10 @@ public final class ProcessList {
                 hostingRecord.getDefiningUid(), hostingRecord.getDefiningProcessName());
         final ProcessStateRecord state = r.mState;
 
-        if (!mService.mBooted && !mService.mBooting
+        if (!isolated && !isSdkSandbox
                 && userId == UserHandle.USER_SYSTEM
-                && (info.flags & PERSISTENT_MASK) == PERSISTENT_MASK) {
+                && (info.flags & PERSISTENT_MASK) == PERSISTENT_MASK
+                && (TextUtils.equals(proc, info.processName))) {
             // The system process is initialized to SCHED_GROUP_DEFAULT in init.rc.
             state.setCurrentSchedulingGroup(ProcessList.SCHED_GROUP_DEFAULT);
             state.setSetSchedGroup(ProcessList.SCHED_GROUP_DEFAULT);

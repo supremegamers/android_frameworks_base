@@ -198,6 +198,8 @@ final class LocalDisplayAdapter extends DisplayAdapter {
         private DisplayDeviceInfo mInfo;
         private boolean mHavePendingChanges;
         private int mState = Display.STATE_UNKNOWN;
+        private int mCommittedState = Display.STATE_UNKNOWN;
+
         // This is only set in the runnable returned from requestDisplayStateLocked.
         private float mBrightnessState = PowerManager.BRIGHTNESS_INVALID_FLOAT;
         private float mSdrBrightnessState = PowerManager.BRIGHTNESS_INVALID_FLOAT;
@@ -635,6 +637,7 @@ final class LocalDisplayAdapter extends DisplayAdapter {
                 mInfo.appVsyncOffsetNanos = mActiveSfDisplayMode.appVsyncOffsetNanos;
                 mInfo.presentationDeadlineNanos = mActiveSfDisplayMode.presentationDeadlineNanos;
                 mInfo.state = mState;
+                mInfo.committedState = mCommittedState;
                 mInfo.uniqueId = getUniqueId();
                 final DisplayAddress.Physical physicalAddress =
                         DisplayAddress.fromPhysicalDisplayId(mPhysicalDisplayId);
@@ -682,11 +685,6 @@ final class LocalDisplayAdapter extends DisplayAdapter {
                         maxDisplayMode == null ? mInfo.width : maxDisplayMode.getPhysicalWidth();
                 final int maxHeight =
                         maxDisplayMode == null ? mInfo.height : maxDisplayMode.getPhysicalHeight();
-                mInfo.displayCutout = DisplayCutout.fromResourcesRectApproximation(res,
-                        mInfo.uniqueId, maxWidth, maxHeight, mInfo.width, mInfo.height);
-
-                mInfo.roundedCorners = RoundedCorners.fromResources(
-                        res, mInfo.uniqueId, maxWidth, maxHeight, mInfo.width, mInfo.height);
                 mInfo.installOrientation = mStaticDisplayInfo.installOrientation;
 
                 if (mStaticDisplayInfo.isInternal) {
@@ -695,6 +693,10 @@ final class LocalDisplayAdapter extends DisplayAdapter {
                     mInfo.flags |= DisplayDeviceInfo.FLAG_ROTATES_WITH_CONTENT;
                     mInfo.name = res.getString(
                             com.android.internal.R.string.display_manager_built_in_display_name);
+                    mInfo.displayCutout = DisplayCutout.fromResourcesRectApproximation(res,
+                            mInfo.uniqueId, maxWidth, maxHeight, mInfo.width, mInfo.height);
+                    mInfo.roundedCorners = RoundedCorners.fromResources(
+                            res, mInfo.uniqueId, maxWidth, maxHeight, mInfo.width, mInfo.height);
                 } else {
                     mInfo.type = Display.TYPE_EXTERNAL;
                     mInfo.touch = DisplayDeviceInfo.TOUCH_EXTERNAL;
@@ -822,6 +824,7 @@ final class LocalDisplayAdapter extends DisplayAdapter {
                         } finally {
                             Trace.traceEnd(Trace.TRACE_TAG_POWER);
                         }
+                        setCommittedState(state);
                         // If we're entering a suspended (but not OFF) power state and we
                         // have a sidekick available, tell it now that it can take control.
                         if (Display.isSuspendedState(state) && state != Display.STATE_OFF
@@ -834,6 +837,16 @@ final class LocalDisplayAdapter extends DisplayAdapter {
                                 Trace.traceEnd(Trace.TRACE_TAG_POWER);
                             }
                         }
+                    }
+
+                    private void setCommittedState(int state) {
+                        // After the display state is set, let's update the committed state.
+                        getHandler().post(() -> {
+                            synchronized (getSyncRoot()) {
+                                mCommittedState = state;
+                                updateDeviceInfoLocked();
+                            }
+                        });
                     }
 
                     private void setDisplayBrightness(float brightnessState,
@@ -1108,6 +1121,7 @@ final class LocalDisplayAdapter extends DisplayAdapter {
             pw.println("mDefaultModeId=" + mDefaultModeId);
             pw.println("mUserPreferredModeId=" + mUserPreferredModeId);
             pw.println("mState=" + Display.stateToString(mState));
+            pw.println("mCommittedState=" + Display.stateToString(mCommittedState));
             pw.println("mBrightnessState=" + mBrightnessState);
             pw.println("mBacklightAdapter=" + mBacklightAdapter);
             pw.println("mAllmSupported=" + mAllmSupported);

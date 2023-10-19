@@ -41,6 +41,7 @@ import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.HardwareBuffer;
 import android.os.IBinder;
+import android.os.PowerManagerInternal.PowerExtBoosts;
 import android.os.Trace;
 import android.util.Slog;
 import android.util.proto.ProtoOutputStream;
@@ -160,6 +161,11 @@ class ScreenRotationAnimation {
                 logicalWidth > mOriginalWidth == logicalHeight > mOriginalHeight
                 && (logicalWidth != mOriginalWidth || logicalHeight != mOriginalHeight);
         mSurfaceRotationAnimationController = new SurfaceRotationAnimationController();
+
+        if (mService.mPowerManagerInternal != null) {
+                mService.mPowerManagerInternal.setPowerExtMode(
+                    PowerExtBoosts.APP_ROTATE.name(), true);
+        }
 
         // Check whether the current screen contains any secure content.
         boolean isSecure = displayContent.hasSecureWindowOnScreen();
@@ -557,6 +563,11 @@ class ScreenRotationAnimation {
             mRotateAlphaAnimation.cancel();
             mRotateAlphaAnimation = null;
         }
+
+        if (mService.mPowerManagerInternal != null) {
+                mService.mPowerManagerInternal.setPowerExtMode(
+                    PowerExtBoosts.APP_ROTATE.name(), false);
+        }
     }
 
     public boolean isAnimating() {
@@ -800,6 +811,10 @@ class ScreenRotationAnimation {
                 if (mDisplayContent.getRotationAnimation() == ScreenRotationAnimation.this) {
                     // It also invokes kill().
                     mDisplayContent.setRotationAnimation(null);
+                    if (mDisplayContent.mDisplayRotationCompatPolicy != null) {
+                        mDisplayContent.mDisplayRotationCompatPolicy
+                                .onScreenRotationAnimationFinished();
+                    }
                 } else {
                     kill();
                 }

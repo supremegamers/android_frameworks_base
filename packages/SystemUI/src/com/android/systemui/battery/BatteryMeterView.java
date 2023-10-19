@@ -24,6 +24,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 import android.animation.LayoutTransition;
 import android.animation.ObjectAnimator;
 import android.annotation.IntDef;
+import android.annotation.IntRange;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -38,7 +39,6 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -207,7 +207,13 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
         return false;
     }
 
-    void onBatteryLevelChanged(int level, boolean pluggedIn) {
+    /**
+     * Update battery level
+     *
+     * @param level     int between 0 and 100 (representing percentage value)
+     * @param pluggedIn whether the device is plugged in or not
+     */
+    public void onBatteryLevelChanged(@IntRange(from = 0, to = 100) int level, boolean pluggedIn) {
         mAccessorizedDrawable.setCharging(pluggedIn);
         mCircleDrawable.setCharging(pluggedIn);
         mAccessorizedDrawable.setBatteryLevel(level);
@@ -344,9 +350,9 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
         final int showBatteryPercent = Settings.System.getIntForUser(
                 getContext().getContentResolver(), STATUS_BAR_SHOW_BATTERY_PERCENT, 0,
                 UserHandle.USER_CURRENT);
-        final boolean drawPercentInside = mShowPercentMode == MODE_DEFAULT &&
-                showBatteryPercent == 1;
         final boolean drawPercentOnly = mShowPercentMode == MODE_ESTIMATE ||
+                showBatteryPercent == 1;
+        final boolean drawPercentInside = mShowPercentMode == MODE_DEFAULT &&
                 showBatteryPercent == 2;
         boolean shouldShow =
                 (drawPercentOnly && (!drawPercentInside || mCharging) ||
@@ -363,10 +369,9 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
                 }
                 if (mTextColor != 0) mBatteryPercentView.setTextColor(mTextColor);
                 updatePercentText();
-                addView(mBatteryPercentView,
-                        new ViewGroup.LayoutParams(
-                                LayoutParams.WRAP_CONTENT,
-                                LayoutParams.MATCH_PARENT));
+                addView(mBatteryPercentView, new LayoutParams(
+                        LayoutParams.WRAP_CONTENT,
+                        LayoutParams.MATCH_PARENT));
             }
             if (getBatteryStyle() == BATTERY_STYLE_TEXT) {
                 mBatteryPercentView.setPaddingRelative(0, 0, 0, 0);

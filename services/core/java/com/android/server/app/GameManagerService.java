@@ -51,8 +51,10 @@ import android.app.GameManager.GameMode;
 import android.app.GameModeInfo;
 import android.app.GameState;
 import android.app.IGameManagerService;
+import android.app.IUidObserver;
 import android.app.compat.PackageOverride;
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -64,6 +66,7 @@ import android.content.pm.UserInfo;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
+import android.database.ContentObserver;
 import android.hardware.power.Mode;
 import android.net.Uri;
 import android.os.Binder;
@@ -79,9 +82,11 @@ import android.os.RemoteException;
 import android.os.ResultReceiver;
 import android.os.ServiceManager;
 import android.os.ShellCallback;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.DeviceConfig;
 import android.provider.DeviceConfig.Properties;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.AtomicFile;
@@ -118,6 +123,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Service to manage game related features.
@@ -171,40 +177,19 @@ public final class GameManagerService extends IGameManagerService.Stub {
     private final ArrayMap<String, GamePackageConfiguration> mOverrideConfigs = new ArrayMap<>();
     @Nullable
     private final GameServiceController mGameServiceController;
+    private final Object mUidObserverLock = new Object();
+    @VisibleForTesting
+    @Nullable
+    final UidObserver mUidObserver;
+    @GuardedBy("mUidObserverLock")
+    private final Set<Integer> mForegroundGameUids = new HashSet<>();
 
     public GameManagerService(Context context) {
         this(context, createServiceThread().getLooper());
     }
 
     GameManagerService(Context context, Looper looper) {
-        mContext = context;
-        mHandler = new SettingsHandler(looper);
-        mPackageManager = mContext.getPackageManager();
-        mUserManager = mContext.getSystemService(UserManager.class);
-        mPlatformCompat = IPlatformCompat.Stub.asInterface(
-                ServiceManager.getService(Context.PLATFORM_COMPAT_SERVICE));
-        mPowerManagerInternal = LocalServices.getService(PowerManagerInternal.class);
-        mSystemDir = new File(Environment.getDataDirectory(), "system");
-        mSystemDir.mkdirs();
-        FileUtils.setPermissions(mSystemDir.toString(),
-                FileUtils.S_IRWXU | FileUtils.S_IRWXG | FileUtils.S_IROTH | FileUtils.S_IXOTH,
-                -1, -1);
-        mGameModeInterventionListFile = new AtomicFile(new File(mSystemDir,
-                                                     GAME_MODE_INTERVENTION_LIST_FILE_NAME));
-        FileUtils.setPermissions(mGameModeInterventionListFile.getBaseFile().getAbsolutePath(),
-                FileUtils.S_IRUSR | FileUtils.S_IWUSR
-                        | FileUtils.S_IRGRP | FileUtils.S_IWGRP,
-                -1, -1);
-        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_GAME_SERVICE)) {
-            mGameServiceController = new GameServiceController(
-                    context, BackgroundThread.getExecutor(),
-                    new GameServiceProviderSelectorImpl(
-                            context.getResources(),
-                            context.getPackageManager()),
-                    new GameServiceProviderInstanceFactoryImpl(context));
-        } else {
-            mGameServiceController = null;
-        }
+        this(context, looper, Environment.getDataDirectory());
     }
 
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
@@ -236,6 +221,14 @@ public final class GameManagerService extends IGameManagerService.Stub {
                     new GameServiceProviderInstanceFactoryImpl(context));
         } else {
             mGameServiceController = null;
+        }
+        mUidObserver = new UidObserver();
+        try {
+            ActivityManager.getService().registerUidObserver(mUidObserver,
+                    ActivityManager.UID_OBSERVER_PROCSTATE | ActivityManager.UID_OBSERVER_GONE,
+                    ActivityManager.PROCESS_STATE_UNKNOWN, null);
+        } catch (RemoteException e) {
+            Slog.w(TAG, "Could not register UidObserver");
         }
     }
 
@@ -1229,6 +1222,9 @@ public final class GameManagerService extends IGameManagerService.Stub {
         if (mGameServiceController != null) {
             mGameServiceController.onBootComplete();
         }
+        // Start to observe our Settings.Secure.GAME_OVERLAY
+        // after boot completed.
+        new SettingsObserver(mHandler);
     }
 
     void onUserStarting(@NonNull TargetUser user) {
@@ -1874,4 +1870,103 @@ public final class GameManagerService extends IGameManagerService.Stub {
      * load dynamic library for frame rate overriding JNI calls
      */
     private static native void nativeSetOverrideFrameRate(int uid, float frameRate);
+
+    final class UidObserver extends IUidObserver.Stub {
+        @Override
+        public void onUidIdle(int uid, boolean disabled) {}
+
+        @Override
+        public void onUidGone(int uid, boolean disabled) {
+            synchronized (mUidObserverLock) {
+                disableGameMode(uid);
+            }
+        }
+
+        @Override
+        public void onUidActive(int uid) {}
+
+        @Override
+        public void onUidStateChanged(int uid, int procState, long procStateSeq, int capability) {
+            synchronized (mUidObserverLock) {
+                if (ActivityManager.isProcStateBackground(procState)) {
+                    disableGameMode(uid);
+                    return;
+                }
+
+                final String[] packages = mContext.getPackageManager().getPackagesForUid(uid);
+                if (packages == null || packages.length == 0) {
+                    return;
+                }
+
+                final int userId = mContext.getUserId();
+                if (!Arrays.stream(packages).anyMatch(p -> isPackageGame(p, userId))) {
+                    return;
+                }
+
+                if (mForegroundGameUids.isEmpty()) {
+                    Slog.v(TAG, "Game power mode ON (process state was changed to foreground)");
+                    mPowerManagerInternal.setPowerMode(Mode.GAME, true);
+                }
+                mForegroundGameUids.add(uid);
+            }
+        }
+
+        private void disableGameMode(int uid) {
+            synchronized (mUidObserverLock) {
+                if (!mForegroundGameUids.contains(uid)) {
+                    return;
+                }
+                mForegroundGameUids.remove(uid);
+                if (!mForegroundGameUids.isEmpty()) {
+                    return;
+                }
+                Slog.v(TAG,
+                        "Game power mode OFF (process remomved or state changed to background)");
+                mPowerManagerInternal.setPowerMode(Mode.GAME, false);
+            }
+        }
+
+        @Override
+        public void onUidCachedChanged(int uid, boolean cached) {}
+
+        @Override
+        public void onUidProcAdjChanged(int uid) {}
+    }
+
+    class SettingsObserver extends ContentObserver {
+
+        private final ContentResolver mContentResolver;
+
+        SettingsObserver(Handler handler) {
+            super(handler);
+            mContentResolver = mContext.getContentResolver();
+            mContentResolver.registerContentObserver(Settings.Secure.getUriFor(
+                    Settings.Secure.GAME_OVERLAY), false, this,
+                    UserHandle.USER_ALL);
+            }
+
+        @Override
+        public void onChange(boolean selfChange, Uri uri) {
+            String newValue = Settings.Secure.getString(mContentResolver,
+                    Settings.Secure.GAME_OVERLAY);
+            // We write key and value of the device_config property as a single string
+            // from our GameSpace.
+            // ';;' is the separator betweeen key and value.
+            // Example: com.libremobileos.game;;mode=2,downscaleFactor=0.7:mode=3,downscaleFactor=0.8
+            // So split the key and value from the string
+            // and set the device_config propery.
+            String[] parsedValues = newValue.split(";;");
+            // Value should contain both package name and config.
+            // Otherwise don't do anything.
+            if (parsedValues.length < 2) return;
+            // We don't need to care about any format and all.
+            // It will be handled by the GamePackageConfiguration while
+            // parsing the device_config property.
+            String packageName = parsedValues[0];
+            String configValue = parsedValues[1];
+            DeviceConfig.setProperty(DeviceConfig.NAMESPACE_GAME_OVERLAY,
+                    packageName, configValue, false);
+        }
+    }
+
 }

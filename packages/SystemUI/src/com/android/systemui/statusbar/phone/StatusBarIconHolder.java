@@ -23,8 +23,6 @@ import android.graphics.drawable.Icon;
 import android.os.UserHandle;
 
 import com.android.internal.statusbar.StatusBarIcon;
-import com.android.systemui.statusbar.phone.PhoneStatusBarPolicy.NetworkTrafficState;
-import com.android.systemui.statusbar.connectivity.ImsIconState;
 import com.android.systemui.statusbar.phone.StatusBarSignalPolicy.CallIndicatorIconState;
 import com.android.systemui.statusbar.phone.StatusBarSignalPolicy.MobileIconState;
 import com.android.systemui.statusbar.phone.StatusBarSignalPolicy.WifiIconState;
@@ -32,8 +30,6 @@ import com.android.systemui.statusbar.pipeline.mobile.ui.viewmodel.MobileIconVie
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-
-import android.provider.Settings;
 
 /**
  * Wraps {@link com.android.internal.statusbar.StatusBarIcon} so we can still have a uniform list
@@ -67,18 +63,12 @@ public class StatusBarIconHolder {
     @Deprecated
     public static final int TYPE_WIFI_NEW = 4;
 
-    public static final int TYPE_NETWORK_TRAFFIC = 5;
-
-    public static final int TYPE_IMS = 6;
-
     @IntDef({
             TYPE_ICON,
             TYPE_WIFI,
             TYPE_MOBILE,
             TYPE_MOBILE_NEW,
-            TYPE_WIFI_NEW,
-            TYPE_NETWORK_TRAFFIC,
-            TYPE_IMS
+            TYPE_WIFI_NEW
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface IconType {}
@@ -86,11 +76,20 @@ public class StatusBarIconHolder {
     private StatusBarIcon mIcon;
     private WifiIconState mWifiState;
     private MobileIconState mMobileState;
-    private NetworkTrafficState mNetworkTrafficState;
-    private ImsIconState mImsState;
-
     private @IconType int mType = TYPE_ICON;
     private int mTag = 0;
+
+    /** Returns a human-readable string representing the given type. */
+    public static String getTypeString(@IconType int type) {
+        switch(type) {
+            case TYPE_ICON: return "ICON";
+            case TYPE_WIFI: return "WIFI_OLD";
+            case TYPE_MOBILE: return "MOBILE_OLD";
+            case TYPE_MOBILE_NEW: return "MOBILE_NEW";
+            case TYPE_WIFI_NEW: return "WIFI_NEW";
+            default: return "UNKNOWN";
+        }
+    }
 
     private StatusBarIconHolder() {
     }
@@ -134,22 +133,6 @@ public class StatusBarIconHolder {
         holder.mMobileState = state;
         holder.mType = TYPE_MOBILE;
         holder.mTag = state.subId;
-        return holder;
-    }
-
-    /** */
-    public static StatusBarIconHolder fromNetworkTrafficState(NetworkTrafficState state) {
-        StatusBarIconHolder holder = new StatusBarIconHolder();
-        holder.mNetworkTrafficState = state;
-        holder.mType = TYPE_NETWORK_TRAFFIC;
-        return holder;
-    }
-
-    /** */
-    public static StatusBarIconHolder fromImsIconState(ImsIconState state) {
-        StatusBarIconHolder holder = new StatusBarIconHolder();
-        holder.mImsState = state;
-        holder.mType = TYPE_IMS;
         return holder;
     }
 
@@ -212,23 +195,6 @@ public class StatusBarIconHolder {
         mMobileState = state;
     }
 
-    @Nullable
-    public NetworkTrafficState getNetworkTrafficState() {
-        return mNetworkTrafficState;
-    }
-
-    public void setNetworkTrafficState(NetworkTrafficState state) {
-        mNetworkTrafficState = state;
-    }
-
-    public ImsIconState getImsState() {
-        return mImsState;
-    }
-
-    public void setImsState(ImsIconState state) {
-        mImsState = state;
-    }
-
     public boolean isVisible() {
         switch (mType) {
             case TYPE_ICON:
@@ -242,10 +208,6 @@ public class StatusBarIconHolder {
                 // The new pipeline controls visibilities via the view model and view binder, so
                 // this is effectively an unused return value.
                 return true;
-            case TYPE_NETWORK_TRAFFIC:
-                return mNetworkTrafficState.visible;
-            case TYPE_IMS:
-                return mImsState.visible;
             default:
                 return true;
         }
@@ -274,17 +236,17 @@ public class StatusBarIconHolder {
                 // The new pipeline controls visibilities via the view model and view binder, so
                 // ignore setVisible.
                 break;
-            case TYPE_NETWORK_TRAFFIC:
-                mNetworkTrafficState.visible = visible;
-                break;
-
-            case TYPE_IMS:
-                mImsState.visible = visible;
-                break;
         }
     }
 
     public int getTag() {
         return mTag;
+    }
+
+    @Override
+    public String toString() {
+        return "StatusBarIconHolder(type=" + getTypeString(mType)
+                + " tag=" + getTag()
+                + " visible=" + isVisible() + ")";
     }
 }
