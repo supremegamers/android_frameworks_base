@@ -111,7 +111,7 @@
                     <com.android.systemui.statusbar.LineageStatusBarItemHolder
                         android:id="@+id/network_traffic_holder_start"
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
+                        android:layout_height="wrap_content"
                         android:layoutDirection="ltr"
                         android:gravity="center"
                         android:paddingStart="4dp"
@@ -142,7 +142,7 @@
         <com.android.systemui.statusbar.LineageStatusBarItemHolder
             android:id="@+id/network_traffic_holder_center"
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layoutDirection="ltr"
             android:gravity="center"
             >
@@ -181,7 +181,7 @@
                 <com.android.systemui.statusbar.LineageStatusBarItemHolder
                     android:id="@+id/network_traffic_holder_end"
                     android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
+                    android:layout_height="wrap_content"
                     android:layoutDirection="ltr"
                     android:gravity="center"
                     android:paddingLeft="2dp"
