@@ -69,6 +69,7 @@ import android.os.Handler;
 import android.os.PowerManager;
 import android.os.Process;
 import android.os.Trace;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.VibrationEffect;
 import android.provider.Settings;
@@ -155,6 +156,7 @@ import com.android.systemui.keyguard.ui.viewmodel.KeyguardLongPressViewModel;
 import com.android.systemui.keyguard.ui.viewmodel.LockscreenToDreamingTransitionViewModel;
 import com.android.systemui.keyguard.ui.viewmodel.LockscreenToOccludedTransitionViewModel;
 import com.android.systemui.keyguard.ui.viewmodel.OccludedToLockscreenTransitionViewModel;
+import com.android.systemui.libremobileos.pulselight.PulseLightView;
 import com.android.systemui.media.controls.pipeline.MediaDataManager;
 import com.android.systemui.media.controls.ui.KeyguardMediaController;
 import com.android.systemui.media.controls.ui.MediaHierarchyManager;
@@ -189,6 +191,7 @@ import com.android.systemui.statusbar.notification.NotificationWakeUpCoordinator
 import com.android.systemui.statusbar.notification.PropertyAnimator;
 import com.android.systemui.statusbar.notification.ViewGroupFadeHelper;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
+import com.android.systemui.statusbar.notification.collection.NotifPipeline;
 import com.android.systemui.statusbar.notification.row.ActivatableNotificationView;
 import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
 import com.android.systemui.statusbar.notification.row.ExpandableView;
@@ -680,6 +683,9 @@ public final class NotificationPanelViewController implements Dumpable {
 
     private final FaceIconViewController mFaceIconViewController;
 
+    private PulseLightView mPulseLightView;
+    private NotifPipeline mNotifPipeline;
+
     @Inject
     public NotificationPanelViewController(NotificationPanelView view,
             @Main Handler handler,
@@ -759,7 +765,8 @@ public final class NotificationPanelViewController implements Dumpable {
             KeyguardInteractor keyguardInteractor,
             TunerService tunerService,
             Context context,
-            FaceIconViewController faceIconViewController) {
+            FaceIconViewController faceIconViewController,
+            NotifPipeline notifPipeline) {
         mInteractionJankMonitor = interactionJankMonitor;
         keyguardStateController.addCallback(new KeyguardStateController.Callback() {
             @Override
@@ -968,6 +975,7 @@ public final class NotificationPanelViewController implements Dumpable {
                 });
         mAlternateBouncerInteractor = alternateBouncerInteractor;
         dumpManager.registerDumpable(this);
+        mNotifPipeline = notifPipeline;
     }
 
     private void unlockAnimationFinished() {
@@ -1060,6 +1068,7 @@ public final class NotificationPanelViewController implements Dumpable {
         mShadeExpansionStateManager.addQsExpansionListener(this::onQsExpansionChanged);
         addTrackingHeadsUpListener(mNotificationStackScrollLayoutController::setTrackingHeadsUp);
         setKeyguardBottomArea(mView.findViewById(R.id.keyguard_bottom_area));
+        mPulseLightView = (PulseLightView) mView.findViewById(R.id.pulse_light_view);
 
         initBottomArea();
 
@@ -3049,9 +3058,42 @@ public final class NotificationPanelViewController implements Dumpable {
         if (!mPulsing && !mDozing) {
             mAnimateNextPositionUpdate = false;
         }
+
+        showPulseLight();
+
         mNotificationStackScrollLayoutController.setPulsing(pulsing, animatePulse);
 
         updateKeyguardStatusViewAlignment(/* animate= */ true);
+    }
+
+    private void showPulseLight() {
+        if (mPulseLightView == null || !isPulseLightEnabled()) return;
+        if (mPulsing) {
+            // Get the notification that's pulsing
+            String notifPackageName = "";
+            List<NotificationEntry> notificationEntries =
+                    new ArrayList(mNotifPipeline.getAllNotifs());
+            for (int i = 0; i < notificationEntries.size(); i++) {
+                NotificationEntry entry = notificationEntries.get(i);
+                if (entry.showingPulseLight()) {
+                    notifPackageName = entry.getSbn().getPackageName();
+                    break;
+                }
+            }
+            // Animate edge light only for notification pulse.
+            // Package not empty means pulse caused by a notification.
+            if (!notifPackageName.isEmpty()) {
+                mPulseLightView.setVisibility(View.VISIBLE);
+                mPulseLightView.animateNotification(notifPackageName);
+            }
+        } else {
+            mPulseLightView.setVisibility(View.GONE);
+        }
+    }
+
+    private boolean isPulseLightEnabled() {
+        return Settings.Secure.getIntForUser(mView.getContext().getContentResolver(),
+                Settings.Secure.PULSE_AMBIENT_LIGHT, 0, UserHandle.USER_CURRENT) != 0;
     }
 
     public void setAmbientIndicationTop(int ambientIndicationTop, boolean ambientTextVisible) {
@@ -3678,7 +3720,7 @@ public final class NotificationPanelViewController implements Dumpable {
         return !isDirectionUpwards(x, y);
     }
 
-    private void fling(float vel, boolean expand, boolean expandBecauseOfFalsing) {
+    public void fling(float vel, boolean expand, boolean expandBecauseOfFalsing) {
         fling(vel, expand, 1.0f /* collapseSpeedUpFactor */, expandBecauseOfFalsing);
     }
 
@@ -4525,7 +4567,9 @@ public final class NotificationPanelViewController implements Dumpable {
         @Override
         public void onTuningChanged(String key, String newValue) {
             if (DOUBLE_TAP_SLEEP_GESTURE.equals(key)) {
-                mDoubleTapToSleepEnabled = TunerService.parseIntegerSwitch(newValue, true);
+                mDoubleTapToSleepEnabled = TunerService.parseIntegerSwitch(newValue,
+                        mResources.getBoolean(com.android.internal.R.bool.
+                                config_dt2sGestureEnabledByDefault));
             }
         }
     }
@@ -4579,7 +4623,7 @@ public final class NotificationPanelViewController implements Dumpable {
         mDisplayTopInset = combinedInsets.top;
         mDisplayRightInset = combinedInsets.right;
         mDisplayLeftInset = combinedInsets.left;
-        mQsController.setDisplayInsets(mDisplayRightInset, mDisplayLeftInset);
+        mQsController.setDisplayInsets(mDisplayLeftInset, mDisplayRightInset);
 
         mNavigationBarBottomHeight = insets.getStableInsetBottom();
         updateMaxHeadsUpTranslation();

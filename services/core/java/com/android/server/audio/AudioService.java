@@ -41,7 +41,6 @@ import android.annotation.SuppressLint;
 import android.annotation.UserIdInt;
 import android.app.ActivityManager;
 import android.app.ActivityManagerInternal;
-import android.app.ActivityThread;
 import android.app.AlarmManager;
 import android.app.AppGlobals;
 import android.app.AppOpsManager;
@@ -153,7 +152,6 @@ import android.os.VibrationAttributes;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
-import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.provider.Settings.System;
 import android.service.notification.ZenModeConfig;
@@ -175,7 +173,6 @@ import android.widget.Toast;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
 import com.android.internal.util.DumpUtils;
 import com.android.internal.util.Preconditions;
 import com.android.server.EventLogTags;
@@ -235,7 +232,6 @@ public class AudioService extends IAudioService.Stub
             AudioSystemAdapter.OnVolRangeInitRequestListener {
 
     private static final String TAG = "AS.AudioService";
-    private static final boolean CONFIG_DEFAULT_VAL = false;
 
     private final AudioSystemAdapter mAudioSystem;
     private final SystemServerAdapter mSystemServer;
@@ -989,7 +985,6 @@ public class AudioService extends IAudioService.Stub
      * @param looper Looper to use for the service's message handler. If this is null, an
      *               {@link AudioSystemThread} is created as the messaging thread instead.
      */
-    @RequiresPermission(Manifest.permission.READ_DEVICE_CONFIG)
     public AudioService(Context context, AudioSystemAdapter audioSystem,
             SystemServerAdapter systemServer, SettingsAdapter settings, @Nullable Looper looper,
             AppOpsManager appOps) {
@@ -1034,12 +1029,8 @@ public class AudioService extends IAudioService.Stub
         mUseVolumeGroupAliases = mContext.getResources().getBoolean(
                 com.android.internal.R.bool.config_handleVolumeAliasesUsingVolumeGroups);
 
-        mNotifAliasRing = !DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_SYSTEMUI,
-                SystemUiDeviceConfigFlags.VOLUME_SEPARATE_NOTIFICATION, false);
-
-        DeviceConfig.addOnPropertiesChangedListener(DeviceConfig.NAMESPACE_SYSTEMUI,
-                ActivityThread.currentApplication().getMainExecutor(),
-                this::onDeviceConfigChange);
+        mNotifAliasRing = mContext.getResources().getBoolean(
+                com.android.internal.R.bool.config_alias_ring_notif_stream_types);
 
         // Initialize volume
         // Priority 1 - Android Property
@@ -1267,22 +1258,6 @@ public class AudioService extends IAudioService.Stub
                         && sVolumeGroupStates.indexOfKey(groupId) >= 0) {
                     streamState.setVolumeGroupState(sVolumeGroupStates.get(groupId));
                 }
-            }
-        }
-    }
-
-    /**
-     * Separating notification volume from ring is NOT of aliasing the corresponding streams
-     * @param properties
-     */
-    private void onDeviceConfigChange(DeviceConfig.Properties properties) {
-        Set<String> changeSet = properties.getKeyset();
-        if (changeSet.contains(SystemUiDeviceConfigFlags.VOLUME_SEPARATE_NOTIFICATION)) {
-            boolean newNotifAliasRing = !properties.getBoolean(
-                    SystemUiDeviceConfigFlags.VOLUME_SEPARATE_NOTIFICATION, CONFIG_DEFAULT_VAL);
-            if (mNotifAliasRing != newNotifAliasRing) {
-                mNotifAliasRing = newNotifAliasRing;
-                updateStreamVolumeAlias(true, TAG);
             }
         }
     }
@@ -4575,6 +4550,17 @@ public class AudioService extends IAudioService.Stub
         return UserHandle.USER_SYSTEM;
     }
 
+    private void sendVolumeChangedIntent(Intent intent, int streamType, int oldIndex, int index) {
+        intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, streamType);
+        intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, index);
+        intent.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, oldIndex);
+        intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE_ALIAS,
+                mStreamVolumeAlias[streamType]);
+        AudioService.sVolumeLogger.log(new VolChangedBroadcastEvent(
+                streamType, mStreamVolumeAlias[streamType], index));
+        sendBroadcastToAll(intent);
+    }
+
     // UI update and Broadcast Intent
     protected void sendVolumeUpdate(int streamType, int oldIndex, int index, int flags, int device)
     {
@@ -4584,6 +4570,20 @@ public class AudioService extends IAudioService.Stub
             flags &= ~AudioManager.FLAG_SHOW_UI;
         }
         mVolumeController.postVolumeChanged(streamType, flags);
+        if (mIsSingleVolume) {
+            if ((flags & AudioManager.FLAG_FIXED_VOLUME) == 0) {
+                oldIndex = (oldIndex + 5) / 10;
+                index = (index + 5) / 10;
+
+                // log base stream changes to the event log
+                if (mStreamVolumeAlias[streamType] == streamType) {
+                    EventLogTags.writeVolumeChanged(streamType, oldIndex, index,
+                            MAX_STREAM_VOLUME[streamType], "isSingleVolume=true");
+                }
+                Intent intent = new Intent(AudioManager.VOLUME_CHANGED_ACTION);
+                sendVolumeChangedIntent(intent, streamType, oldIndex, index);
+            }
+        }
     }
 
     // Don't show volume UI when:
@@ -8312,7 +8312,8 @@ public class AudioService extends IAudioService.Stub
                     }
                 }
             }
-            if (changed) {
+
+            if (changed && !mIsSingleVolume) {
                 // If associated to volume group, update group cache
                 updateVolumeGroupIndex(device, /* forceMuteState= */ false);
 
@@ -8329,13 +8330,7 @@ public class AudioService extends IAudioService.Stub
                 // fire changed intents for all streams, but only when the device it changed on
                 // is the current device
                 if ((index != oldIndex) && isCurrentDevice) {
-                    mVolumeChanged.putExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, index);
-                    mVolumeChanged.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, oldIndex);
-                    mVolumeChanged.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE_ALIAS,
-                            mStreamVolumeAlias[mStreamType]);
-                    AudioService.sVolumeLogger.log(new VolChangedBroadcastEvent(
-                            mStreamType, mStreamVolumeAlias[mStreamType], index));
-                    sendBroadcastToAll(mVolumeChanged);
+                    sendVolumeChangedIntent(mVolumeChanged, mStreamType, oldIndex, index);
                 }
             }
             return changed;

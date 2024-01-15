@@ -53,9 +53,6 @@ class FaceIconViewController @Inject constructor(
     @Main private val resources: Resources,
 ) : ViewController<FaceIconView?>(view) {
 
-    private var keyguardShowing = false
-    private var keyguardJustShown = false
-    private var blockUpdates = false
     private var simLocked = false
     private var statusBarState: Int = StatusBarState.SHADE
     private var lastState = 0
@@ -88,20 +85,15 @@ class FaceIconViewController @Inject constructor(
         val faceIconView = mView ?: return
         val newState = state
         var shouldUpdate = lastState != newState || force
-        if (blockUpdates && canBlockUpdates()) {
+        // Block updates on success when bypass enabled.
+        if (newState == STATE_FACE_SUCCESS && keyguardBypassController.canBypass()) {
             shouldUpdate = false
         }
         if (shouldUpdate && faceIconView.visibility != View.GONE) {
-            faceIconView.update(newState, keyguardJustShown)
+            faceIconView.updateState(newState)
         }
         lastState = newState
-        keyguardJustShown = false
         updateIconVisibility()
-    }
-
-    private fun canBlockUpdates(): Boolean {
-        return keyguardShowing || keyguardStateController.isKeyguardFadingAway()
-                || keyguardStateController.isKeyguardGoingAway()
     }
 
     private fun setStatusBarState(statusBarState: Int) {
@@ -111,10 +103,12 @@ class FaceIconViewController @Inject constructor(
 
     private fun updateIconVisibility(): Boolean {
         val faceIconView = mView ?: return false
+        val isKeyguard = keyguardStateController.isShowing()
         val faceAuthAvailable = keyguardStateController.isFaceAuthEnabled()
                 && (faceDetectionRunning || keyguardUpdateMonitor.getIsFaceAuthenticated())
-        val invisible = dozing || !faceAuthAvailable
-        return faceIconView.updateIconVisibility(!invisible)
+        // Make sure it only visible in lockscreen with face auth available.
+        val invisible = dozing || !faceAuthAvailable || !isKeyguard
+        return faceIconView.updateVisibility(!invisible)
     }
 
     private fun updateColor() {
@@ -164,9 +158,11 @@ class FaceIconViewController @Inject constructor(
         override fun onDensityOrFontScaleChanged() {
             val faceIconView = mView ?: return
             val lp: ViewGroup.LayoutParams = faceIconView.getLayoutParams()
-            lp.width = faceIconView.resources.getDimensionPixelSize(R.dimen.keyguard_lock_width)
+            lp.width = faceIconView.resources.getDimensionPixelSize(
+                R.dimen.keyguard_face_icon_width
+            )
             lp.height = faceIconView.resources.getDimensionPixelSize(
-                R.dimen.keyguard_lock_height
+                R.dimen.keyguard_face_icon_height
             )
             faceIconView.setLayoutParams(lp)
             update(true /* force */)
@@ -239,33 +235,19 @@ class FaceIconViewController @Inject constructor(
             }
         }
 
-    private val keyguardMonitorCallback: KeyguardStateController.Callback = object : KeyguardStateController.Callback {
-        override fun onKeyguardShowingChanged() {
-            var force = false
-            val wasShowing = keyguardShowing
-            keyguardShowing = this@FaceIconViewController.keyguardStateController.isShowing()
-            if (!wasShowing && keyguardShowing && blockUpdates) {
-                blockUpdates = false
-                force = true
+    private val keyguardMonitorCallback: KeyguardStateController.Callback =
+        object : KeyguardStateController.Callback {
+            override fun onKeyguardShowingChanged() {
+                update()
             }
-            if (!wasShowing && keyguardShowing) {
-                keyguardJustShown = true
-            }
-            update(force)
-        }
 
-        override fun onKeyguardFadingAwayChanged() {
-            if (!this@FaceIconViewController.keyguardStateController.isKeyguardFadingAway()) {
-                if (blockUpdates) {
-                    blockUpdates = false
-                    update(true /* force */)
-                }
+            override fun onKeyguardFadingAwayChanged() {
+                update()
             }
-        }
 
-        override fun onUnlockedChanged() {
-            update()
-        }
+            override fun onUnlockedChanged() {
+                update()
+            }
     }
 
     private val accessibilityDelegate: View.AccessibilityDelegate =
