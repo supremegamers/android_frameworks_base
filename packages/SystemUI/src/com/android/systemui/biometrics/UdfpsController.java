@@ -18,6 +18,8 @@ package com.android.systemui.biometrics;
 
 import static android.hardware.biometrics.BiometricFingerprintConstants.FINGERPRINT_ACQUIRED_GOOD;
 import static android.hardware.biometrics.BiometricOverlayConstants.REASON_AUTH_KEYGUARD;
+import static android.hardware.biometrics.BiometricOverlayConstants.REASON_ENROLL_ENROLLING;
+import static android.hardware.biometrics.BiometricOverlayConstants.REASON_ENROLL_FIND_SENSOR;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
 import static com.android.systemui.classifier.Classifier.LOCK_ICON;
@@ -51,6 +53,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.VelocityTracker;
+import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
 
@@ -101,6 +104,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -1238,16 +1242,31 @@ public class UdfpsController implements DozeReceiver, Dumpable {
         // has had chance to switch out of HBM mode.
         // The delay, in ms is stored in config_udfpsDimmingDisableDelay.
         // If the delay is 0, the dim amount will be updated immediately.
-        final int delay = mContext.getResources().getInteger(
-                R.integer.config_udfpsDimmingDisableDelay);
-        if (delay > 0) {
-            UdfpsControllerOverlay overlay = mOverlay;
-            mFgExecutor.executeDelayed(() -> {
-                updateViewDimAmount(overlay, false);
-            }, delay);
-        } else {
-            updateViewDimAmount(mOverlay, false);
+        int delay = 0;
+        if (mOverlay.getRequestReason() == REASON_AUTH_KEYGUARD) {
+            delay = mContext.getResources().getInteger(R.integer.config_udfpsDimmingDisableDelay);
+        } else if ((mOverlay.getRequestReason() == REASON_ENROLL_ENROLLING) ||
+                (mOverlay.getRequestReason() == REASON_ENROLL_FIND_SENSOR)) {
+            delay = mContext.getResources().getInteger(
+                        R.integer.config_udfpsEnrollingDimmingDisableDelay);
         }
+        final AtomicInteger delayCounter = new AtomicInteger(delay);
+
+        UdfpsControllerOverlay overlay = mOverlay;
+        final Runnable dimmingDisableRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (delayCounter.getAndDecrement() <= 0) {
+                    updateViewDimAmount(overlay, false);
+                } else {
+                    View view = overlay.getFrame();
+                    if (view != null) {
+                        view.postOnAnimation(this);
+                    }
+                }
+            }
+        };
+        dimmingDisableRunnable.run();
     }
 
     /**
